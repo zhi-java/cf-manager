@@ -11,6 +11,7 @@ interface AccountBucket {
 }
 
 const buckets = new Map<number, AccountBucket>();
+let dailyResetTimer: ReturnType<typeof setTimeout> | null = null;
 
 function ensureBuckets(): void {
   const accounts = getActiveAccountsByFeature('browser_render');
@@ -31,6 +32,43 @@ export function markAccountExhausted(accountId: number): void {
   if (bucket) bucket.exhausted = true;
   clearCache();
   appLogger.info(`[BrowserRL] Account ${accountId} marked as exhausted (CF daily limit)`);
+}
+
+function resetAllExhausted(): void {
+  let count = 0;
+  for (const bucket of buckets.values()) {
+    if (bucket.exhausted) {
+      bucket.exhausted = false;
+      count++;
+    }
+  }
+  if (count > 0) {
+    clearCache();
+    appLogger.info(`[BrowserRL] Daily reset: cleared exhausted flag on ${count} account(s)`);
+  }
+}
+
+function msUntilNextUTCMidnight(): number {
+  const now = new Date();
+  const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+  return tomorrow.getTime() - now.getTime();
+}
+
+function scheduleDailyReset(): void {
+  if (dailyResetTimer) clearTimeout(dailyResetTimer);
+
+  const ms = msUntilNextUTCMidnight();
+  dailyResetTimer = setTimeout(() => {
+    resetAllExhausted();
+    scheduleDailyReset();
+  }, ms);
+
+  const resetAt = new Date(Date.now() + ms);
+  appLogger.info(`[BrowserRL] Next daily reset scheduled at ${resetAt.toISOString()} (in ${Math.round(ms / 60000)} min)`);
+}
+
+export function initBrowserRateLimiter(): void {
+  scheduleDailyReset();
 }
 
 export type AcquireResult =
