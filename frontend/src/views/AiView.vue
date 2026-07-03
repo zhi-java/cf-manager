@@ -473,7 +473,7 @@ watch(selectedAccount, () => {
 }
 
 .card-grid-scroll {
-  max-height: 220px;
+  max-height: 50vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -495,6 +495,12 @@ watch(selectedAccount, () => {
   .ai-compact-card {
     width: 100%;
     min-width: 100px;
+  }
+  .ai-compact-card__name {
+    max-width: 45px;
+  }
+  .ai-compact-card__metric {
+    font-size: 10px;
   }
   .ai-message-bubble-user,
   .ai-message-bubble-assistant {

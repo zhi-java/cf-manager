@@ -1467,7 +1467,7 @@ onMounted(() => {
 }
 
 .card-grid-scroll {
-  max-height: 220px;
+  max-height: 50vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -1476,6 +1476,12 @@ onMounted(() => {
   .worker-compact-card {
     width: 100%;
     min-width: 100px;
+  }
+  .worker-compact-card__name {
+    max-width: 45px;
+  }
+  .worker-compact-card__metric {
+    font-size: 10px;
   }
 }
 </style>

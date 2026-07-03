@@ -268,7 +268,7 @@ onMounted(() => {
 }
 
 .card-grid-scroll {
-  max-height: 220px;
+  max-height: 50vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -277,6 +277,12 @@ onMounted(() => {
   .br-compact-card {
     width: 100%;
     min-width: 100px;
+  }
+  .br-compact-card__name {
+    max-width: 45px;
+  }
+  .br-compact-card__metric {
+    font-size: 10px;
   }
   .br-result-frame {
     height: 400px !important;

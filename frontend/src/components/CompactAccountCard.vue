@@ -213,4 +213,14 @@ const displayName = computed(() => {
 .compact-card__popover-value {
   color: #999;
 }
+
+@media (max-width: 768px) {
+  .compact-card__name {
+    max-width: 45px;
+  }
+  .compact-card__dot {
+    width: 6px;
+    height: 6px;
+  }
+}
 </style>
