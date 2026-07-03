@@ -18,6 +18,7 @@ import externalBrowserRenderRouter from './routes/externalBrowserRender';
 import { getQuotaSummary, syncUsageFromCloudflare } from './services/quotaTracker';
 import { getRecentLogs } from './models/auditLog';
 import { initScheduler } from './services/taskScheduler';
+import { v1RequestLogger } from './middleware/v1Logger';
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use('/api/storage', storageRouter);
 app.use('/api/tasks', tasksRouter);
 
 // External APIs — no responseWrapper, keep original format
+app.use('/v1', v1RequestLogger);
 app.use('/v1', openaiRouter);
 app.use('/v1/browser', externalBrowserRenderRouter);
 
