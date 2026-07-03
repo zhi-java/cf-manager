@@ -1,17 +1,17 @@
 # cf-reg
 
-Cloudflare 批量注册工具，自动完成注册、邮箱验证、提取 API Key。
+Cloudflare 批量注册工具，是 [CF Manager](https://github.com/hefy2027/cf-manager) 的配套工具。自动完成注册、邮箱验证、提取 API Key，注册后的账户可直接导入 CF Manager 进行统一管理。
 
 ## 安装
 
 ```bash
 # Unix / macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/hefy2027/cf-reg/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/hefy2027/cf-manager/master/reg/install.sh | bash
 ```
 
 ```powershell
 # Windows (PowerShell)
-iwr -Uri https://raw.githubusercontent.com/hefy2027/cf-reg/master/install.bat -OutFile install.bat; ./install.bat
+irm https://raw.githubusercontent.com/hefy2027/cf-manager/master/reg/install.bat -OutFile install.bat; ./install.bat
 ```
 
 要求：Node.js >= v20
@@ -60,3 +60,7 @@ cf-reg --password mypassword --count 3
 | `-s, --skip-existing` | 跳过已有账户 |
 | `--config <path>` | 指定配置文件 |
 | `--help` | 查看帮助 |
+
+## 与 CF Manager 配合
+
+cf-reg 负责批量注册 Cloudflare 账户并提取 API Key，CF Manager 负责将这些账户统一管理（Workers、Pages、DNS、KV、D1、R2、AI 推理、浏览器渲染等）。两者配合形成完整的 Cloudflare 账户管理方案。详见 [CF Manager](https://github.com/hefy2027/cf-manager)。
