@@ -75,19 +75,29 @@ jobs:
           # --- 完全覆盖：删除旧数据库 ---
           if [ "${{ github.event.inputs.full_wipe }}" = "true" ]; then
             echo "完全覆盖模式：尝试删除旧 D1 数据库..."
-            DB_OLD_ID=$(wrangler d1 list 2>/dev/null | grep "$DB_NAME" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' || echo "")
+            DB_OLD_ID=$(wrangler d1 list 2>&1 | grep -i "$DB_NAME" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1 || echo "")
             if [ -n "$DB_OLD_ID" ]; then
-              wrangler d1 delete "$DB_NAME" --force 2>/dev/null || echo "删除失败，继续..."
+              echo "找到数据库 ID: $DB_OLD_ID，正在删除..."
+              wrangler d1 delete "$DB_NAME" --yes 2>&1 || echo "通过名称删除失败，尝试通过 ID..."
+              # 等待删除生效
+              sleep 3
+            else
+              echo "未在列表中匹配到数据库，尝试按名称删除..."
+              wrangler d1 delete "$DB_NAME" --yes 2>&1 || echo "数据库可能不存在或已被删除"
               sleep 2
             fi
           fi
 
-          DB_ID=$(wrangler d1 list 2>/dev/null | grep "$DB_NAME" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' || echo "")
+          # 获取数据库 ID
+          DB_LIST=$(wrangler d1 list 2>&1 || true)
+          echo "$DB_LIST" | head -10
+          DB_ID=$(echo "$DB_LIST" | grep -i "$DB_NAME" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1 || echo "")
 
           if [ -z "$DB_ID" ]; then
             echo "Creating D1 database: $DB_NAME"
             wrangler d1 create "$DB_NAME"
-            DB_ID=$(wrangler d1 list | grep "$DB_NAME" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+            DB_LIST2=$(wrangler d1 list 2>&1)
+            DB_ID=$(echo "$DB_LIST2" | grep -i "$DB_NAME" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
             echo "Created database with ID: $DB_ID"
 
             echo "Initializing database schema..."
@@ -95,7 +105,12 @@ jobs:
           else
             echo "Database already exists: $DB_NAME (ID: $DB_ID)"
             if [ "${{ github.event.inputs.full_wipe }}" = "true" ]; then
-              echo "重新初始化数据库 Schema..."
+              echo "完全覆盖模式：清空所有表数据..."
+              wrangler d1 execute "$DB_NAME" --command="DROP TABLE IF EXISTS quota_usage" --remote || true
+              wrangler d1 execute "$DB_NAME" --command="DROP TABLE IF EXISTS audit_log" --remote || true
+              wrangler d1 execute "$DB_NAME" --command="DROP TABLE IF EXISTS app_settings" --remote || true
+              wrangler d1 execute "$DB_NAME" --command="DROP TABLE IF EXISTS accounts" --remote || true
+              echo "重新初始化 Schema..."
               wrangler d1 execute "$DB_NAME" --file=worker/src/db/schema.sql --remote
             fi
           fi
