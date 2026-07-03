@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { selectBestAccount, getAccountsByPriority, clearCache } from '../services/accountRouter';
 import { getAccountById } from '../models/account';
 import { getAvailableModels, runInferenceStream, getAiUsageToday } from '../services/aiService';
-import { getActiveAccounts } from '../models/account';
+import { getActiveAccountsByFeature } from '../models/account';
 import { setQuota } from '../models/quotaUsage';
 import { appLogger } from '../services/logger';
 
@@ -92,7 +92,7 @@ router.post('/inference', async (req, res, next) => {
 
 router.get('/usage', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const accounts = getActiveAccounts();
+    const accounts = getActiveAccountsByFeature('ai');
     const results = await Promise.all(
       accounts.map(async (account) => {
         try {

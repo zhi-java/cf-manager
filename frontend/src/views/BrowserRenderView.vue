@@ -189,10 +189,12 @@ function formatSeconds(s: number): string {
 async function fetchUsage() {
   try {
     const { data } = await browserRenderApi.getQuota();
-    usageList.value = (data || []).map((acct: any) => {
-      const br = (acct.resources || []).find((r: any) => r.resource === 'browser_render_seconds');
-      return { accountId: acct.accountId, accountName: acct.accountName, used: br?.count || 0, limit: br?.limit || 600 };
-    });
+    usageList.value = (data || [])
+      .map((acct: any) => {
+        const br = (acct.resources || []).find((r: any) => r.resource === 'browser_render_seconds');
+        return br ? { accountId: acct.accountId, accountName: acct.accountName, used: br.count || 0, limit: br.limit || 600 } : null;
+      })
+      .filter(Boolean) as UsageItem[];
   } catch {
     usageList.value = [];
   }

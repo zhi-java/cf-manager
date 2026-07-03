@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import AdmZip from 'adm-zip';
-import { getActiveAccounts, getAccountById } from '../models/account';
+import { getActiveAccountsByFeature, getAccountById } from '../models/account';
 import { createAuditLog } from '../models/auditLog';
 import { appLogger } from '../services/logger';
 import { getAccountOr404 } from './routeUtils';
@@ -39,7 +39,7 @@ const router = Router();
 // ============ List all ============
 router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const accounts = getActiveAccounts();
+    const accounts = getActiveAccountsByFeature('workers');
     const allItems: Array<any> = [];
     for (const account of accounts) {
       try {
@@ -466,7 +466,7 @@ router.put('/:accountId/pages/:name/bindings', async (req: Request, res: Respons
 // ============ Workers Usage (GraphQL) ============
 router.get('/usage', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const accounts = getActiveAccounts();
+    const accounts = getActiveAccountsByFeature('workers');
     const results: Array<{ accountId: number; accountName: string; requests: number; errors: number; subrequests: number; cpuTimeMs: number }> = [];
     for (const account of accounts) {
       try {

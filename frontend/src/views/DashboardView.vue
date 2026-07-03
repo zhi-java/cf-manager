@@ -6,8 +6,8 @@
     </n-space>
 
     <n-spin :show="quotaStore.loading" style="margin-top: 16px">
-      <n-grid v-if="quotaStore.quota.length > 0" :cols="Math.min(quotaStore.quota.length, 5)" :x-gap="16" :y-gap="16">
-        <n-gi v-for="acct in quotaStore.quota" :key="acct.accountId">
+      <n-grid v-if="quotaWithResources.length > 0" :cols="Math.min(quotaWithResources.length, 5)" :x-gap="16" :y-gap="16">
+        <n-gi v-for="acct in quotaWithResources" :key="acct.accountId">
           <n-card :title="acct.accountName" size="small">
             <div v-for="r in acct.resources" :key="r.resource" style="margin-bottom: 14px;">
               <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
@@ -25,7 +25,7 @@
           </n-card>
         </n-gi>
       </n-grid>
-      <n-empty v-if="!quotaStore.loading && quotaStore.quota.length === 0" description="暂无账户数据" />
+      <n-empty v-if="!quotaStore.loading && quotaWithResources.length === 0" description="暂无账户数据" />
     </n-spin>
 
     <n-h3 style="margin-top: 24px">最近操作日志</n-h3>
@@ -40,12 +40,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useQuotaStore } from '../stores/quotaStore';
 import apiClient from '../api/client';
 import type { DataTableColumns } from 'naive-ui';
 
 const quotaStore = useQuotaStore();
+const quotaWithResources = computed(() =>
+  quotaStore.quota.filter((acct: any) => acct.resources && acct.resources.length > 0)
+);
 const auditLogs = ref<any[]>([]);
 const loadingLogs = ref(false);
 
