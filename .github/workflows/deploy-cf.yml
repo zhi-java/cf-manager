@@ -90,9 +90,13 @@ jobs:
         working-directory: worker
         run: node build.js
 
+      - name: Create Pages project if not exists
+        run: |
+          wrangler pages project create "${{ github.event.inputs.project_name }}" --production-branch main 2>/dev/null || echo "Project already exists, skipping creation"
+
       - name: Deploy to Cloudflare Pages
         working-directory: worker
-        run: wrangler pages deploy public/ --project-name "${{ github.event.inputs.project_name }}"
+        run: wrangler pages deploy public/ --project-name "${{ github.event.inputs.project_name }}" --commit-dirty=true
 
       - name: Configure secrets
         working-directory: worker
