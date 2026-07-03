@@ -161,7 +161,7 @@ const logColumns: DataTableColumns<any> = [
   { title: '账号', key: 'account_name', width: 120, render: (row) => row.account_name || '-' },
   { title: '操作', key: 'action', width: 150 },
   { title: '目标', key: 'target', width: 150 },
-  { title: '详情', key: 'detail', ellipsis: { tooltip: true } },
+  { title: '详情', key: 'detail', width: 160, minWidth: 120, ellipsis: { tooltip: true } },
   { title: '状态', key: 'status', width: 80 },
 ];
 

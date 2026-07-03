@@ -1249,7 +1249,7 @@ const columns = computed<DataTableColumns<any>>(() => {
 
 // Secret columns
 const secretColumns: DataTableColumns<any> = [
-  { title: '名称', key: 'name' },
+  { title: '名称', key: 'name', minWidth: 100 },
   { title: '类型', key: 'type', width: 120, render: (row) => h(NTag, { size: 'small' }, { default: () => row.type || 'unknown' }) },
   { title: '操作', key: 'actions', width: 140, render: (row) => h(NSpace, { size: 4 }, {
     default: () => [
@@ -1261,20 +1261,20 @@ const secretColumns: DataTableColumns<any> = [
 
 // Schedule columns
 const scheduleColumns: DataTableColumns<any> = [
-  { title: 'Cron 表达式', key: 'cron' },
-  { title: '修改时间', key: 'modified_on', render: (row) => row.modified_on ? formatCN(row.modified_on) : '-' },
+  { title: 'Cron 表达式', key: 'cron', minWidth: 120 },
+  { title: '修改时间', key: 'modified_on', width: 170, render: (row) => row.modified_on ? formatCN(row.modified_on) : '-' },
 ];
 
 // Domain columns
 const domainColumns: DataTableColumns<any> = [
-  { title: '域名', key: 'hostname' },
+  { title: '域名', key: 'hostname', minWidth: 120, ellipsis: { tooltip: true } },
   { title: '环境', key: 'environment', width: 100, render: (row) => h(NTag, { size: 'small', type: row.environment === 'production' ? 'success' : 'warning' }, { default: () => row.environment || '-' }) },
   { title: '操作', key: 'actions', width: 80, render: (row) => h(NButton, { size: 'tiny', type: 'error', onClick: () => handleDeleteDomain(row) }, { default: () => '删除' }) },
 ];
 
 // Route columns
 const routeColumns: DataTableColumns<any> = [
-  { title: 'Pattern', key: 'pattern' },
+  { title: 'Pattern', key: 'pattern', minWidth: 120, ellipsis: true },
   { title: 'Script', key: 'script', width: 150 },
   { title: 'ID', key: 'id', width: 120, ellipsis: true },
   { title: '操作', key: 'actions', width: 80, render: (row) => h(NButton, { size: 'tiny', type: 'error', onClick: () => handleDeleteRoute(row) }, { default: () => '删除' }) },
@@ -1283,13 +1283,13 @@ const routeColumns: DataTableColumns<any> = [
 // Deployment columns
 const deploymentColumns: DataTableColumns<any> = [
   { title: 'ID', key: 'id', width: 120, ellipsis: true },
-  { title: '创建时间', key: 'created_on', render: (row) => row.created_on ? formatCN(row.created_on) : '-' },
+  { title: '创建时间', key: 'created_on', width: 170, render: (row) => row.created_on ? formatCN(row.created_on) : '-' },
   { title: '来源', key: 'source', width: 100, render: (row) => row.source || '-' },
 ];
 
 // Pages domain columns
 const pagesDomainColumns: DataTableColumns<any> = [
-  { title: '域名', key: 'name' },
+  { title: '域名', key: 'name', minWidth: 120, ellipsis: { tooltip: true } },
   { title: '状态', key: 'status', width: 100, render: (row) => h(NTag, { size: 'small', type: row.status === 'active' ? 'success' : 'warning' }, { default: () => row.status || '-' }) },
   {
     title: '操作', key: 'actions', width: 120,
@@ -1304,9 +1304,9 @@ const pagesDomainColumns: DataTableColumns<any> = [
 
 // Pages env var columns
 const pagesEnvColumns: DataTableColumns<any> = [
-  { title: '名称', key: 'name' },
+  { title: '名称', key: 'name', width: 120 },
   { title: '类型', key: 'type', width: 100, render: (row) => h(NTag, { size: 'small', type: row.type === 'secret_text' ? 'warning' : 'default' }, { default: () => row.type === 'secret_text' ? '加密' : '明文' }) },
-  { title: '值', key: 'value', ellipsis: true },
+  { title: '值', key: 'value', minWidth: 120, ellipsis: true },
   { title: '操作', key: 'actions', width: 140, render: (row) => h(NSpace, { size: 4 }, {
     default: () => [
       h(NButton, { size: 'tiny', onClick: () => handleEditPagesEnv(row) }, { default: () => '编辑' }),
@@ -1318,8 +1318,8 @@ const pagesEnvColumns: DataTableColumns<any> = [
 // Pages bindings columns
 const bindingsColumns: DataTableColumns<any> = [
   { title: '类型', key: 'type', width: 100, render: (row) => h(NTag, { size: 'small', type: row.typeKey === 'kv_namespaces' ? 'info' : row.typeKey === 'd1_databases' ? 'warning' : 'success' }, { default: () => row.type }) },
-  { title: '变量名', key: 'name' },
-  { title: '资源', key: 'value', ellipsis: true, render: (row) => {
+  { title: '变量名', key: 'name', width: 120 },
+  { title: '资源', key: 'value', minWidth: 150, ellipsis: true, render: (row) => {
     const resolved = resolveResourceName(row.value);
     return resolved.name
       ? h(NSpace, { size: 'small', align: 'center' }, { default: () => [h('span', null, resolved.name), h(NTag, { size: 'tiny', type: 'default', style: 'opacity: 0.6' }, { default: () => resolved.id })] })
