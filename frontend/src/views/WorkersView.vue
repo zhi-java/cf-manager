@@ -47,13 +47,16 @@
       </n-gi>
     </n-grid>
 
-    <n-data-table
-      :columns="columns"
-      :data="workerStore.workers"
-      :loading="workerStore.loading"
-      :bordered="false"
-      :scroll-x="700"
-    />
+    <div class="table-scroll-wrapper">
+      <n-data-table
+        :columns="columns"
+        :data="workerStore.workers"
+        :loading="workerStore.loading"
+        :max-height="600"
+        :bordered="false"
+        :scroll-x="700"
+      />
+    </div>
 
     <!-- 部署 Modal -->
     <n-modal v-model:show="showDeployModal" preset="dialog" title="部署" style="width: 500px; max-width: 95vw">
@@ -1453,5 +1456,18 @@ onMounted(() => {
   color: #666;
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+.table-scroll-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .worker-compact-card {
+    width: 100%;
+    min-width: 100px;
+  }
 }
 </style>

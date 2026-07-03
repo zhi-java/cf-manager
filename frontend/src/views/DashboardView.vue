@@ -1,6 +1,6 @@
 <template>
   <div>
-    <n-space align="center" justify="space-between" style="width: 100%">
+    <n-space align="center" justify="space-between" style="width: 100%" :wrap="true">
       <n-space align="center">
         <n-h2 style="margin: 0">仪表盘</n-h2>
         <n-tag size="small" type="info">今日额度</n-tag>
@@ -32,7 +32,13 @@
     </n-space>
 
     <n-spin :show="quotaStore.loading" style="margin-top: 16px">
-      <n-grid v-if="quotaWithResources.length > 0" cols="6 s:4 m:6 l:8 xl:10" :x-gap="8" :y-gap="8" responsive="screen">
+      <n-grid
+        v-if="quotaWithResources.length > 0"
+        cols="2 s:3 m:5 l:6 xl:8"
+        :x-gap="8"
+        :y-gap="8"
+        responsive="screen"
+      >
         <n-gi v-for="acct in quotaWithResources" :key="acct.accountId">
           <CompactAccountCard :account-name="acct.accountName" :resources="acct.resources" />
         </n-gi>
@@ -41,19 +47,22 @@
     </n-spin>
 
     <n-h3 style="margin-top: 24px">最近操作日志</n-h3>
-    <n-data-table
-      :columns="logColumns"
-      :data="auditLogs"
-      :loading="loadingLogs"
-      size="small"
-      :bordered="false"
-      :scroll-x="700"
-    />
+    <div class="log-table-wrapper">
+      <n-data-table
+        :columns="logColumns"
+        :data="auditLogs"
+        :loading="loadingLogs"
+        size="small"
+        :bordered="false"
+        :scroll-x="Math.max(700, windowWidth)"
+        :max-height="500"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useQuotaStore } from '../stores/quotaStore';
 import apiClient from '../api/client';
 import type { DataTableColumns } from 'naive-ui';
@@ -64,6 +73,11 @@ import CompactAccountCard from '../components/CompactAccountCard.vue';
 const quotaStore = useQuotaStore();
 const searchQuery = ref('');
 const sortBy = ref('name');
+const windowWidth = ref(window.innerWidth);
+
+function onResize() {
+  windowWidth.value = window.innerWidth;
+}
 
 const sortOptions = [
   { label: '名称 A-Z', value: 'name' },
@@ -152,6 +166,7 @@ const logColumns: DataTableColumns<any> = [
 ];
 
 onMounted(async () => {
+  window.addEventListener('resize', onResize);
   quotaStore.fetchQuota();
   loadingLogs.value = true;
   try {
@@ -161,4 +176,16 @@ onMounted(async () => {
     loadingLogs.value = false;
   }
 });
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onResize);
+});
 </script>
+
+<style scoped>
+.log-table-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+</style>

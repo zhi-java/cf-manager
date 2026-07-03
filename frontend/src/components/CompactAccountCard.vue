@@ -125,14 +125,16 @@ const displayName = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 120px;
+  width: 100%;
+  min-width: 100px;
   height: 28px;
-  padding: 0 4px;
+  padding: 0 6px;
   border: 1px solid #e0e0e6;
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s;
   background-color: #fff;
+  box-sizing: border-box;
 }
 
 .compact-card:hover {

@@ -95,6 +95,7 @@
         </template>
         <iframe
           v-if="htmlViewMode === 'render'"
+          class="br-result-frame"
           :srcdoc="result.html"
           style="width: 100%; height: 600px; border: 1px solid #eee; border-radius: 4px;"
           sandbox="allow-same-origin"
@@ -112,7 +113,7 @@
         <template #header-extra>
           <n-button size="tiny" @click="downloadPdf">下载 PDF</n-button>
         </template>
-        <iframe :src="result.pdf" style="width: 100%; height: 700px; border: 1px solid #eee;" />
+        <iframe :src="result.pdf" class="br-result-pdf" style="width: 100%; border: 1px solid #eee;" />
       </n-card>
 
       <!-- 链接提取结果 -->
@@ -254,5 +255,26 @@ onMounted(() => {
   color: #666;
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+.br-result-frame {
+  height: 600px;
+}
+
+.br-result-pdf {
+  height: 700px;
+}
+
+@media (max-width: 768px) {
+  .br-compact-card {
+    width: 100%;
+    min-width: 100px;
+  }
+  .br-result-frame {
+    height: 400px !important;
+  }
+  .br-result-pdf {
+    height: 500px !important;
+  }
 }
 </style>

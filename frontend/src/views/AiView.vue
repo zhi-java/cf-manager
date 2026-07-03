@@ -484,5 +484,13 @@ watch(selectedAccount, () => {
   .ai-select-account {
     width: 100%;
   }
+  .ai-compact-card {
+    width: 100%;
+    min-width: 100px;
+  }
+  .ai-message-bubble-user,
+  .ai-message-bubble-assistant {
+    max-width: 90%;
+  }
 }
 </style>
