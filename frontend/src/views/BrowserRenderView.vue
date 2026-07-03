@@ -3,7 +3,8 @@
     <n-h2>浏览器渲染</n-h2>
 
     <!-- 用量统计 (compact) -->
-    <n-grid v-if="usageList.length > 0" :cols="6" :x-gap="8" :y-gap="8" responsive="screen" style="margin-bottom: 16px;">
+    <div class="card-grid-scroll">
+    <n-grid v-if="usageList.length > 0" :x-gap="8" :y-gap="8" cols="2 s:3 m:4 l:6 xl:8" responsive="screen" style="margin-bottom: 16px;">
       <n-gi v-for="u in usageList" :key="u.accountId">
         <n-popover trigger="click" placement="bottom">
           <template #trigger>
@@ -44,6 +45,7 @@
         </n-popover>
       </n-gi>
     </n-grid>
+    </div>
 
     <n-card size="small" style="margin-bottom: 16px">
       <n-space vertical>
@@ -263,6 +265,12 @@ onMounted(() => {
 
 .br-result-pdf {
   height: 700px;
+}
+
+.card-grid-scroll {
+  max-height: 220px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 @media (max-width: 768px) {

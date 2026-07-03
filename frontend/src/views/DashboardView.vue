@@ -32,17 +32,19 @@
     </n-space>
 
     <n-spin :show="quotaStore.loading" style="margin-top: 16px">
-      <n-grid
-        v-if="quotaWithResources.length > 0"
-        cols="2 s:3 m:5 l:6 xl:8"
-        :x-gap="8"
-        :y-gap="8"
-        responsive="screen"
-      >
+      <div class="card-grid-scroll">
+        <n-grid
+          v-if="quotaWithResources.length > 0"
+          cols="2 s:3 m:5 l:6 xl:8"
+          :x-gap="8"
+          :y-gap="8"
+          responsive="screen"
+        >
         <n-gi v-for="acct in quotaWithResources" :key="acct.accountId">
           <CompactAccountCard :account-name="acct.accountName" :resources="acct.resources" />
         </n-gi>
       </n-grid>
+      </div>
       <n-empty v-if="!quotaStore.loading && quotaWithResources.length === 0" description="暂无账户数据" />
     </n-spin>
 
@@ -186,6 +188,12 @@ onUnmounted(() => {
 .log-table-wrapper {
   max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.card-grid-scroll {
+  max-height: 220px;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 </style>

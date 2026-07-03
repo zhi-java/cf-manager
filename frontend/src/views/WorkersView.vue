@@ -9,8 +9,9 @@
     </n-space>
 
     <!-- Workers Usage per Account (compact) -->
-    <n-grid v-if="usageData.length" :cols="6" :x-gap="8" :y-gap="8" responsive="screen" style="margin-bottom: 12px;">
-      <n-gi v-for="u in usageData" :key="u.accountId">
+    <div class="card-grid-scroll">
+      <n-grid v-if="usageData.length" :x-gap="8" :y-gap="8" cols="2 s:3 m:4 l:6 xl:8" responsive="screen" style="margin-bottom: 12px;">
+        <n-gi v-for="u in usageData" :key="u.accountId">
         <n-popover trigger="click" placement="bottom">
           <template #trigger>
             <div class="worker-compact-card">
@@ -46,6 +47,7 @@
         </n-popover>
       </n-gi>
     </n-grid>
+    </div>
 
     <div class="table-scroll-wrapper">
       <n-data-table
@@ -1461,6 +1463,12 @@ onMounted(() => {
 .table-scroll-wrapper {
   max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.card-grid-scroll {
+  max-height: 220px;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 
