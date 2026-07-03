@@ -131,7 +131,10 @@ jobs:
           # --- 完全覆盖：清空 KV ---
           if [ "${{ github.event.inputs.full_wipe }}" = "true" ]; then
             echo "完全覆盖模式：清空 KV 命名空间..."
-            KV_OLD_ID=$(wrangler kv namespace list --json 2>&1 | grep -oE '"id"\s*:\s*"[0-9a-f]{32}"' | head -1 | grep -oE '[0-9a-f]{32}' || echo "")
+            echo "=== wrangler kv namespace list 输出 ==="
+            KV_LIST_FULL=$(wrangler kv namespace list 2>&1 || true)
+            echo "$KV_LIST_FULL"
+            KV_OLD_ID=$(echo "$KV_LIST_FULL" | grep -oE '[0-9a-f]{32}' | head -1 || echo "")
             if [ -n "$KV_OLD_ID" ]; then
               echo "删除旧 KV namespace: $KV_OLD_ID"
               wrangler kv namespace delete "$KV_OLD_ID" || true
@@ -142,28 +145,40 @@ jobs:
             fi
           fi
 
-          # 查找已有 namespace（优先用 --json 格式，wrangler v4 输出可靠）
-          KV_JSON=$(wrangler kv namespace list --json 2>&1 || true)
-          echo "KV list preview: $(echo "$KV_JSON" | head -c 300)"
-          KV_ID=$(echo "$KV_JSON" | grep -oE '"id"\s*:\s*"[0-9a-f]{32}"' | head -1 | grep -oE '[0-9a-f]{32}' || echo "")
+          # 查找已有 namespace 的 ID
+          echo "=== 查询已有 KV namespace ==="
+          KV_LIST=$(wrangler kv namespace list 2>&1 || true)
+          echo "$KV_LIST"
+
+          # 尝试从输出中提取 32 位 hex ID（wrangler v4 格式兼容）
+          KV_ID=$(echo "$KV_LIST" | grep -oE '[0-9a-f]{32}' | head -1 || echo "")
 
           if [ -z "$KV_ID" ]; then
-            echo "Creating KV namespace: $KV_NAME"
+            echo "未找到已有 namespace，尝试创建..."
             KV_OUTPUT=$(wrangler kv namespace create "$KV_NAME" 2>&1 || true)
             echo "$KV_OUTPUT"
 
             if echo "$KV_OUTPUT" | grep -qi "already exists"; then
-              echo "⚠ Namespace 已存在（可能是 create 的错误提示），重新查询 ID..."
-              KV_JSON2=$(wrangler kv namespace list --json 2>&1 || true)
-              KV_ID=$(echo "$KV_JSON2" | grep -oE '"id"\s*:\s*"[0-9a-f]{32}"' | head -1 | grep -oE '[0-9a-f]{32}' || echo "")
+              echo "⚠ 提示 namespace 已存在，重新 list 查 ID..."
+              KV_LIST2=$(wrangler kv namespace list 2>&1 || true)
+              echo "$KV_LIST2"
+              KV_ID=$(echo "$KV_LIST2" | grep -oE '[0-9a-f]{32}' | head -1 || echo "")
             else
+              # 新创建的，从 create 输出中提取 ID
               KV_ID=$(echo "$KV_OUTPUT" | grep -oE '[0-9a-f]{32}' | head -1 || echo "")
+              # 如果 create 输出没有 ID，可能是以 list 形式展示，重新查询
+              if [ -z "$KV_ID" ]; then
+                echo "create 输出中未找到 ID，重新查询..."
+                KV_LIST3=$(wrangler kv namespace list 2>&1 || true)
+                echo "$KV_LIST3"
+                KV_ID=$(echo "$KV_LIST3" | grep -oE '[0-9a-f]{32}' | head -1 || echo "")
+              fi
             fi
           fi
 
           if [ -z "$KV_ID" ]; then
             echo "ERROR: 无法获取 KV namespace ID"
-            echo "请检查: 1) API Key 权限 2) 手动创建后复制 ID 3) 更换 namespace 名称"
+            echo "请手动在 CF Dashboard 中查询 $KV_NAME 的 namespace ID 并填入 wrangler.toml"
             exit 1
           fi
 
