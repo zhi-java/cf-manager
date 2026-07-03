@@ -124,12 +124,12 @@ jobs:
           # --- 完全覆盖：清空 KV ---
           if [ "${{ github.event.inputs.full_wipe }}" = "true" ]; then
             echo "完全覆盖模式：清空 KV 命名空间..."
-            KV_LIST=$(wrangler kv:namespace list 2>&1 || true)
+            KV_LIST=$(wrangler kv namespace list 2>&1 || true)
             echo "$KV_LIST" | head -20
             KV_OLD_ID=$(echo "$KV_LIST" | grep -i "$KV_NAME" | grep -oE '[0-9a-f]{32}' | head -1 || echo "")
             if [ -n "$KV_OLD_ID" ]; then
               echo "删除旧 KV namespace: $KV_OLD_ID"
-              wrangler kv:namespace delete --namespace-id "$KV_OLD_ID" || true
+              wrangler kv namespace delete "$KV_OLD_ID" || true
               echo "等待删除生效..."
               sleep 5
             else
@@ -138,12 +138,12 @@ jobs:
           fi
 
           # 重新查找（可能已经被删除）
-          KV_LIST=$(wrangler kv:namespace list 2>&1 || true)
+          KV_LIST=$(wrangler kv namespace list 2>&1 || true)
           KV_ID=$(echo "$KV_LIST" | grep -i "$KV_NAME" | grep -oE '[0-9a-f]{32}' | head -1 || echo "")
 
           if [ -z "$KV_ID" ]; then
             echo "Creating KV namespace: $KV_NAME"
-            KV_OUTPUT=$(wrangler kv:namespace create "$KV_NAME" $ACCOUNT_FLAG 2>&1 || true)
+            KV_OUTPUT=$(wrangler kv namespace create "$KV_NAME" $ACCOUNT_FLAG 2>&1 || true)
             echo "$KV_OUTPUT"
             KV_ID=$(echo "$KV_OUTPUT" | grep -oE '[0-9a-f]{32}' | head -1)
             if [ -z "$KV_ID" ]; then
