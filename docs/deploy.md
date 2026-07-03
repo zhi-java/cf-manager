@@ -1,6 +1,64 @@
 # CF Manager 部署指南
 
-CF Manager 支持两种部署方式：**Docker 部署**（自建服务器）和 **Cloudflare Worker 部署**（Serverless）。两种方式功能完全一致，前端界面相同，API 接口兼容。
+CF Manager 支持三种部署方式。推荐使用 **Fork 一键部署**，最简单无需任何工具。
+
+| 方式 | 难度 | 需要 | 适合场景 |
+|------|------|------|----------|
+| Fork 一键部署 | ⭐ | GitHub 账号 | 最简单，无需任何工具 |
+| Cloudflare Worker 部署 | ⭐⭐ | Node.js 或浏览器 | 无服务器，零成本 |
+| Docker 部署 | ⭐⭐⭐ | VPS + Docker | 自建服务器，完全自主 |
+
+---
+
+## 方式零：Fork 一键部署（推荐）
+
+全程在浏览器中操作，无需安装任何工具，3 分钟完成。
+
+### 前置要求
+
+- 一个 GitHub 账号
+- 一个 Cloudflare 账号（获取 Global API Key）
+
+### 部署步骤
+
+#### 1. Fork 仓库
+
+点击本仓库右上角 **Fork** 按钮，将项目 Fork 到你自己的 GitHub 账号下。
+
+#### 2. 获取 Cloudflare Global API Key
+
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens)
+2. **API Keys** → **Global API Key** → **View**
+3. 记录你的 API Key 和账号邮箱
+
+#### 3. 运行部署 Action
+
+1. 进入你 Fork 的仓库 → **Actions** 标签
+2. 左侧选择 **Deploy to Cloudflare Pages**
+3. 点击 **Run workflow**
+4. 填入参数：
+   - `cf_api_key`：你的 Cloudflare Global API Key
+   - `cf_email`：你的 Cloudflare 账号邮箱
+   - 其他保持默认即可（项目名 `cfmgr`，密码 `cfmgrbest`）
+5. 点击绿色 **Run workflow** 按钮
+
+#### 4. 等待部署完成
+
+Action 会自动完成：
+- 创建 D1 数据库并初始化
+- 构建前端和后端代码
+- 部署到 Cloudflare Pages
+- 配置加密密钥和访问密码
+
+#### 5. 访问
+
+部署成功后，访问 `https://cfmgr.pages.dev/admin/`（如果修改了项目名，则为 `https://<项目名>.pages.dev/admin/`）。
+
+默认密码：`cfmgrbest`
+
+### 更新
+
+再次运行 **Deploy to Cloudflare Pages** Action 即可，数据库不会被覆盖。
 
 ---
 
