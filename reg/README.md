@@ -12,8 +12,8 @@ curl -fsSL https://raw.githubusercontent.com/hefy2027/cf-manager/master/reg/inst
 ```
 
 ```powershell
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/hefy2027/cf-manager/master/reg/install.bat -OutFile install.bat; ./install.bat
+# Windows (PowerShell / CMD)
+curl.exe -fsSL https://raw.githubusercontent.com/hefy2027/cf-manager/master/reg/install.bat -o install.bat && install.bat
 ```
 
 或直接 clone 仓库后进入 `reg/` 目录运行安装脚本：
