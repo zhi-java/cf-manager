@@ -4,6 +4,7 @@ import { getAccountById } from '../models/account';
 import { getAvailableModels, runInferenceStream, getAiUsageToday } from '../services/aiService';
 import { getActiveAccounts } from '../models/account';
 import { setQuota } from '../models/quotaUsage';
+import { appLogger } from '../services/logger';
 
 const router = Router();
 
@@ -72,7 +73,7 @@ router.post('/inference', async (req, res, next) => {
               clearCache();
             }
             if (is4006 && idx + 1 < accounts.length) {
-              console.log(`[AI] Account ${account.name} neuron limit (4006), switching...`);
+              appLogger.warn(`[AI] Account ${account.name} neuron limit (4006), switching...`);
               await tryWithFallback(idx + 1);
               resolve();
             } else {
@@ -98,7 +99,7 @@ router.get('/usage', async (_req: Request, res: Response, next: NextFunction) =>
           const usage = await getAiUsageToday(account);
           return { accountId: account.id, accountName: account.name, ...usage };
         } catch (err) {
-          console.error(`[AI Usage] Failed for account ${account.name}:`, err);
+          appLogger.error(`[AI Usage] Failed for account ${account.name}: ${err}`);
           return { accountId: account.id, accountName: account.name, totalNeurons: 0, models: [] };
         }
       })

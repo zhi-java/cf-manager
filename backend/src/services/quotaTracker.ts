@@ -2,6 +2,7 @@ import { incrementQuota, getAllQuotaToday, getQuotaByAccount, setQuota } from '.
 import { getActiveAccounts } from '../models/account';
 import { getAiUsageToday } from './aiService';
 import { getWorkersUsageToday } from './workerService';
+import { appLogger } from './logger';
 
 export type ResourceType = 'workers_requests' | 'ai_neurons' | 'browser_render_seconds';
 
@@ -23,14 +24,14 @@ export async function syncUsageFromCloudflare(): Promise<void> {
       const aiUsage = await getAiUsageToday(account);
       setQuota(account.id, 'ai_neurons', Math.round(aiUsage.totalNeurons));
     } catch (e) {
-      console.error(`[Sync] AI usage failed for ${account.name}:`, e);
+      appLogger.error(`[Sync] AI usage failed for ${account.name}: ${e}`);
     }
 
     try {
       const workersUsage = await getWorkersUsageToday(account);
       setQuota(account.id, 'workers_requests', workersUsage.requests);
     } catch (e) {
-      console.error(`[Sync] Workers usage failed for ${account.name}:`, e);
+      appLogger.error(`[Sync] Workers usage failed for ${account.name}: ${e}`);
     }
   }));
 }

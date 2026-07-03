@@ -3,6 +3,7 @@ import { getAllAccounts, createAccount, deleteAccount, getAccountById, updateAcc
 import { encrypt } from '../services/encryptionService';
 import { getCfClient } from '../services/cfFactory';
 import { getQuotaSummary } from '../services/quotaTracker';
+import { appLogger } from '../services/logger';
 import { createAuditLog } from '../models/auditLog';
 
 const router = Router();
@@ -61,12 +62,12 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
           }
           if (accts.length > 0) {
             updateAccountId(id, accts[0].id);
-            console.log(`[Account] Auto-fetched account_id=${accts[0].id} for "${name}"`);
+            appLogger.info(`[Account] Auto-fetched account_id=${accts[0].id} for "${name}"`);
           }
           updateAccountStatus(id, true);
         }
       } catch (e) {
-        console.warn(`[Account] Failed to auto-fetch account_id for "${name}":`, e);
+        appLogger.warn(`[Account] Failed to auto-fetch account_id for "${name}": ${e}`);
       }
     }
 
@@ -105,7 +106,7 @@ router.post('/:id/test', async (req: Request, res: Response, next: NextFunction)
         }
       } catch (e) {
         // 获取账号列表失败不是致命错误，继续返回测试结果
-        console.warn('Failed to fetch account list:', e);
+        appLogger.warn(`Failed to fetch account list: ${e}`);
       }
     }
 

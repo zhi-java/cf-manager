@@ -3,6 +3,7 @@ import { getActiveAccounts, Account } from '../models/account';
 import { getCfClient } from './cfFactory';
 import { getAccountQuota, ResourceType } from './quotaTracker';
 import { getAiUsageToday } from './aiService';
+import { appLogger } from './logger';
 import { createAuditLog } from '../models/auditLog';
 
 const ZONES_CACHE_TTL = 300; // 5 minutes
@@ -38,7 +39,7 @@ export async function getAllZones(): Promise<Array<Zone & { cfAccountId: number;
       }
       createAuditLog(account.id, 'list_zones', null, `${zones.length} zones`, 'success');
     } catch (err) {
-      console.error(`Failed to fetch zones for account ${account.name}:`, err);
+      appLogger.error(`Failed to fetch zones for account ${account.name}: ${err}`);
     }
   }
 

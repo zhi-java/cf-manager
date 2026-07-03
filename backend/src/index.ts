@@ -19,6 +19,8 @@ import { getQuotaSummary, syncUsageFromCloudflare } from './services/quotaTracke
 import { getRecentLogs } from './models/auditLog';
 import { initScheduler } from './services/taskScheduler';
 import { v1RequestLogger } from './middleware/v1Logger';
+import { apiRequestLogger } from './middleware/apiLogger';
+import { appLogger } from './services/logger';
 
 const app = express();
 
@@ -32,6 +34,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use(authMiddleware);
 
+app.use('/api', apiRequestLogger);
 app.use('/api', responseWrapper);
 
 app.use('/api/accounts', accountsRouter);
@@ -67,15 +70,15 @@ async function start() {
   initDb();
   initScheduler();
   app.listen(config.port, () => {
-    console.log(`Server running on port ${config.port}`);
+    appLogger.info(`Server running on port ${config.port}`);
   });
 }
 
 process.on('uncaughtException', (err) => {
-  console.error('[UNCAUGHT]', err);
+  appLogger.error(`[UNCAUGHT] ${err}`);
 });
 process.on('unhandledRejection', (err) => {
-  console.error('[UNHANDLED_REJECTION]', err);
+  appLogger.error(`[UNHANDLED_REJECTION] ${err}`);
 });
 
-start().catch(console.error);
+start().catch((err) => appLogger.error(`[STARTUP] ${err}`));

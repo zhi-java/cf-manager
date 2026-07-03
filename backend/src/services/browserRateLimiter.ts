@@ -1,5 +1,6 @@
 import { getActiveAccounts, Account } from '../models/account';
 import { clearCache } from './accountRouter';
+import { appLogger } from './logger';
 
 const TOKEN_INTERVAL_MS = 10_000;
 
@@ -29,7 +30,7 @@ export function markAccountExhausted(accountId: number): void {
   const bucket = buckets.get(accountId);
   if (bucket) bucket.exhausted = true;
   clearCache();
-  console.log(`[BrowserRL] Account ${accountId} marked as exhausted (CF daily limit)`);
+  appLogger.info(`[BrowserRL] Account ${accountId} marked as exhausted (CF daily limit)`);
 }
 
 export type AcquireResult =
