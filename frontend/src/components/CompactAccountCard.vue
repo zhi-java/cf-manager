@@ -2,7 +2,7 @@
   <n-popover trigger="click" :show="showPopover" @update:show="showPopover = $event" placement="bottom">
     <template #trigger>
       <div class="compact-card" :class="{ 'compact-card--no-resources': !hasResources }" @click="showPopover = true">
-        <span class="compact-card__name" :title="accountName">{{ displayName }}</span>
+        <span class="compact-card__name" :title="accountName">{{ accountName }}</span>
         <div class="compact-card__dots">
           <n-tooltip v-for="item in orderedResources" :key="item.resource" trigger="hover">
             <template #trigger>
@@ -124,9 +124,9 @@ const displayName = computed(() => {
 .compact-card {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   width: 100%;
-  min-width: 100px;
+  min-width: 0;
   height: 28px;
   padding: 0 6px;
   border: 1px solid #e0e0e6;
@@ -155,12 +155,14 @@ const displayName = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 70px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .compact-card__dots {
   display: flex;
   gap: 3px;
+  flex-shrink: 0;
 }
 
 .compact-card__dot {

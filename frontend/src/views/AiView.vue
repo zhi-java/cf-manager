@@ -11,7 +11,7 @@
             <n-popover trigger="click" placement="bottom">
               <template #trigger>
                 <div class="ai-compact-card">
-                  <span class="ai-compact-card__name" :title="u.accountName">{{ u.accountName.length > 8 ? u.accountName.slice(0, 7) + '…' : u.accountName }}</span>
+                  <span class="ai-compact-card__name" :title="u.accountName">{{ u.accountName }}</span>
                   <n-progress
                     type="line"
                     :percentage="Math.min(u.totalNeurons / 100, 100)"
@@ -19,7 +19,7 @@
                     :rail-color="'#e8e8e8'"
                     :height="6"
                     :show-indicator="false"
-                    :style="{ flex: 1 }"
+                    :style="{ flex: '1 1 0', minWidth: '24px', overflow: 'hidden' }"
                   />
                   <span class="ai-compact-card__metric">{{ u.totalNeurons.toLocaleString() }}</span>
                 </div>
@@ -447,7 +447,8 @@ watch(selectedAccount, () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 180px;
+  width: 100%;
+  min-width: 0;
   height: 28px;
   padding: 0 8px;
   border: 1px solid #e0e0e6;
@@ -455,6 +456,7 @@ watch(selectedAccount, () => {
   cursor: pointer;
   transition: background-color 0.2s;
   background-color: #fff;
+  box-sizing: border-box;
 }
 .ai-compact-card:hover { background-color: #f5f5f5; }
 .ai-compact-card__name {
@@ -462,19 +464,23 @@ watch(selectedAccount, () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 70px;
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .ai-compact-card__metric {
   font-size: 11px;
-  color: #666;
+  color: #333;
+  font-weight: 500;
   flex-shrink: 0;
   white-space: nowrap;
+  min-width: 32px;
+  text-align: right;
 }
 
 .card-grid-scroll {
   max-height: 200px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -497,7 +503,7 @@ watch(selectedAccount, () => {
     min-width: 100px;
   }
   .ai-compact-card__name {
-    max-width: 45px;
+    min-width: 0;
   }
   .ai-compact-card__metric {
     font-size: 10px;

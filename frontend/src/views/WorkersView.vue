@@ -15,14 +15,14 @@
         <n-popover trigger="click" placement="bottom">
           <template #trigger>
             <div class="worker-compact-card">
-              <span class="worker-compact-card__name" :title="u.accountName">{{ u.accountName.length > 8 ? u.accountName.slice(0, 7) + '…' : u.accountName }}</span>
+              <span class="worker-compact-card__name" :title="u.accountName">{{ u.accountName }}</span>
               <n-progress
                 type="line"
                 :percentage="calcUsagePercentage(u)"
                 :height="6"
                 :show-indicator="false"
                 :status="calcUsagePercentage(u) > 90 ? 'error' : calcUsagePercentage(u) > 70 ? 'warning' : 'success'"
-                :style="{ flex: 1 }"
+                :style="{ flex: '1 1 0', minWidth: '24px', overflow: 'hidden' }"
               />
               <span class="worker-compact-card__metric">{{ formatNumber(u.requests) }}</span>
             </div>
@@ -1435,7 +1435,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 180px;
+  width: 100%;
+  min-width: 0;
   height: 28px;
   padding: 0 8px;
   border: 1px solid #e0e0e6;
@@ -1443,6 +1444,7 @@ onMounted(() => {
   cursor: pointer;
   transition: background-color 0.2s;
   background-color: #fff;
+  box-sizing: border-box;
 }
 .worker-compact-card:hover { background-color: #f5f5f5; }
 .worker-compact-card__name {
@@ -1450,14 +1452,17 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 70px;
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .worker-compact-card__metric {
   font-size: 11px;
-  color: #666;
+  color: #333;
+  font-weight: 500;
   flex-shrink: 0;
   white-space: nowrap;
+  min-width: 32px;
+  text-align: right;
 }
 
 .table-scroll-wrapper {
@@ -1469,6 +1474,7 @@ onMounted(() => {
 .card-grid-scroll {
   max-height: 200px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -1478,7 +1484,7 @@ onMounted(() => {
     min-width: 100px;
   }
   .worker-compact-card__name {
-    max-width: 45px;
+    min-width: 0;
   }
   .worker-compact-card__metric {
     font-size: 10px;

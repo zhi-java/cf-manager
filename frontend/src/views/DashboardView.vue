@@ -194,6 +194,7 @@ onUnmounted(() => {
 .card-grid-scroll {
   max-height: 200px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
 }
 </style>
