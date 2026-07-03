@@ -137,7 +137,7 @@ jobs:
             KV_OLD_ID=$(echo "$KV_LIST_FULL" | grep -oE '[0-9a-f]{32}' | head -1 || echo "")
             if [ -n "$KV_OLD_ID" ]; then
               echo "删除旧 KV namespace: $KV_OLD_ID"
-              wrangler kv namespace delete "$KV_OLD_ID" || true
+              wrangler kv namespace delete --namespace-id "$KV_OLD_ID" -y || true
               echo "等待删除生效..."
               sleep 5
             else
