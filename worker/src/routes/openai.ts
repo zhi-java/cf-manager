@@ -37,13 +37,28 @@ app.get('/models', async (c) => {
   if (accounts.length === 0) return c.json({ object: 'list', data: [] });
   const account = accounts[0];
 
+  const taskFilter = c.req.query('task');
   const resp = await cfFetchRaw(account, `/accounts/${account.account_id}/ai/models/search`, c.env.ENCRYPTION_KEY);
   const json = await resp.json() as any;
-  const data = (json.result || []).map((m: any) => ({
+  
+  let models = (json.result || []);
+  
+  // Filter by task if specified (normalize both to handle "text-generation" vs "Text Generation")
+  if (taskFilter) {
+    const normalizedFilter = taskFilter.toLowerCase().replace(/-/g, ' ');
+    models = models.filter((m: any) => {
+      const taskName = m.task?.name || m.task || '';
+      const normalizedTaskName = taskName.toLowerCase().replace(/-/g, ' ');
+      return normalizedTaskName.includes(normalizedFilter);
+    });
+  }
+  
+  const data = models.map((m: any) => ({
     id: m.name || m.id,
     object: 'model',
     created: Math.floor(Date.now() / 1000),
     owned_by: 'cloudflare',
+    task: m.task?.name || m.task || undefined,
   }));
   return c.json({ object: 'list', data });
 });
@@ -54,7 +69,21 @@ function writeSseDone(s: any): void {
 }
 
 app.post('/chat/completions', async (c) => {
-  const accounts = await getAccountsByPriority(c.env.DB, c.env.ENCRYPTION_KEY);
+  // Check if client specified a particular account
+  const specifiedAccountId = c.req.header('X-Account-ID');
+  
+  let accounts = await getAccountsByPriority(c.env.DB, c.env.ENCRYPTION_KEY);
+  
+  // If client specified an account, filter to only that account
+  if (specifiedAccountId && specifiedAccountId !== 'auto') {
+    accounts = accounts.filter(acc => acc.account_id === specifiedAccountId);
+    if (accounts.length === 0) {
+      return c.json({
+        error: { message: `Account ${specifiedAccountId} not found or inactive`, type: 'invalid_request_error', code: 'ACCOUNT_NOT_FOUND' },
+      }, 404);
+    }
+  }
+  
   if (accounts.length === 0) return c.json({ error: { message: 'No active accounts', type: 'service_error', code: 'NO_ACCOUNTS' } }, 503);
 
   const body = await c.req.json();

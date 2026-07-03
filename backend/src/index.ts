@@ -25,7 +25,12 @@ import { appLogger } from './services/logger';
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: true, // Allow all origins (or specify your frontend URL)
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Account-ID'],
+  credentials: false,
+}));
 app.use(express.json({ limit: '100mb' }));
 
 // Health check — before auth so Docker healthcheck works without API_SECRET

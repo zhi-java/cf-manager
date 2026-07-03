@@ -18,9 +18,26 @@ import openaiRouter from './routes/openai';
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.use('*', cors());
+app.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Account-ID'],
+  exposeHeaders: ['Content-Length', 'X-Request-Id'],
+  maxAge: 86400,
+}));
 app.use('*', errorHandler);
+
+// OpenAI-compatible routes (MUST be registered BEFORE responseWrapper)
+// These routes return OpenAI-standard format and should not be wrapped
+app.use('/v1/*', authMiddleware);
+app.route('/v1', openaiRouter);
+
+app.use('/api/v1/*', authMiddleware);
+app.route('/api/v1', openaiRouter);
+
+// Other API routes (with responseWrapper)
 app.use('/api/*', responseWrapper);
+app.use('/api/*', authMiddleware);
 
 app.onError((err: any, c) => {
   const status = err.statusCode || err.status || 500;
@@ -52,8 +69,6 @@ app.get('/api/health', async (c) => {
   return c.json(diag);
 });
 
-app.use('/api/*', authMiddleware);
-
 app.route('/api/accounts', accountsRouter);
 app.route('/api/dns', dnsRouter);
 app.route('/api/workers', workersRouter);
@@ -71,9 +86,6 @@ app.get('/api/audit-log', async (c) => {
   const logs = await getRecentLogs(c.env.DB, 20);
   return c.json(logs);
 });
-
-app.use('/v1/*', authMiddleware);
-app.route('/v1', openaiRouter);
 
 app.get('/admin', (c) => c.redirect('/admin/', 302));
 

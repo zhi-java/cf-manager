@@ -190,7 +190,7 @@ router.post('/chat/completions', async (req: Request, res: Response, next: NextF
                 res.write(buffer);
               }
             }
-            // --- Node.js Readable stream (pipe) ---
+            // --- Node.js Readable stream ---
             else if (typeof body.pipe === 'function') {
               await new Promise<void>((resolve) => {
                 const nodeStream = body as Readable;
@@ -206,8 +206,6 @@ router.post('/chat/completions', async (req: Request, res: Response, next: NextF
                   appLogger.error(`[AI] Stream error (pipe): ${err.message}`);
                   resolve();
                 });
-                // Use pipeline for backpressure instead of raw pipe
-                nodeStream.pipe(res, { end: false });
               });
             }
           }
