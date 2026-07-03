@@ -529,7 +529,9 @@ export async function deployPages(
 
   for (const f of files) {
     const basename = f.path.split('/').pop() || f.path;
-    if (SPECIAL_FILES.has(basename) && !f.path.includes('/')) {
+    const isSpecial = SPECIAL_FILES.has(basename) && !f.path.includes('/');
+    appLogger.info(`[Pages Deploy] File: "${f.path}" | basename: "${basename}" | isSpecial: ${isSpecial} | size: ${f.buffer.length} bytes`);
+    if (isSpecial) {
       params[basename] = new File([new Uint8Array(f.buffer)], basename);
     } else {
       manifest[f.path] = crypto.createHash('sha256').update(f.buffer).digest('hex');
@@ -538,7 +540,9 @@ export async function deployPages(
   }
   params.manifest = JSON.stringify(manifest);
 
-  appLogger.info(`[Pages Deploy] ${files.length} files, manifest: ${Object.keys(manifest).slice(0, 5).join(', ')} ...`);
+  appLogger.info(`[Pages Deploy] Total: ${files.length} files | Normal: ${Object.keys(manifest).length} | Special: ${files.length - Object.keys(manifest).length}`);
+  appLogger.info(`[Pages Deploy] Manifest keys: ${JSON.stringify(Object.keys(manifest))}`);
+  appLogger.info(`[Pages Deploy] Special files: ${Object.keys(params).filter(k => !['account_id','manifest','branch','commit_hash','commit_message','commit_dirty'].includes(k) && !manifest[k]).join(', ')}`);
 
   // 4. Deploy via SDK (handles multipart form construction)
   return cf.pages.projects.deployments.create(projectName, params as any);
