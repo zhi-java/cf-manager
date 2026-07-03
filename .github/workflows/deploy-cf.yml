@@ -78,12 +78,12 @@ jobs:
             DB_OLD_ID=$(wrangler d1 list 2>&1 | grep -i "$DB_NAME" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1 || echo "")
             if [ -n "$DB_OLD_ID" ]; then
               echo "找到数据库 ID: $DB_OLD_ID，正在删除..."
-              wrangler d1 delete "$DB_NAME" --yes 2>&1 || echo "通过名称删除失败，尝试通过 ID..."
+              wrangler d1 delete "$DB_NAME" -y 2>&1 || echo "通过名称删除失败，尝试通过 ID..."
               # 等待删除生效
               sleep 3
             else
               echo "未在列表中匹配到数据库，尝试按名称删除..."
-              wrangler d1 delete "$DB_NAME" --yes 2>&1 || echo "数据库可能不存在或已被删除"
+              wrangler d1 delete "$DB_NAME" -y 2>&1 || echo "数据库可能不存在或已被删除"
               sleep 2
             fi
           fi
