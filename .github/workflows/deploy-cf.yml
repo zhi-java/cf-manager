@@ -36,11 +36,6 @@ on:
         required: false
         default: 'cfmgrbest'
         type: string
-      demo_account_ids:
-        description: '演示模式保护的账户 ID（逗号分隔，如 1,2,3，留空则不启用）'
-        required: false
-        default: ''
-        type: string
       full_wipe:
         description: '完全覆盖：删除并重建 D1 数据库 + 清空 KV 命名空间'
         required: false
@@ -241,12 +236,23 @@ jobs:
 
       - name: Configure secrets
         run: |
-          echo "${{ github.event.inputs.encryption_key }}" | wrangler pages secret put ENCRYPTION_KEY --project-name "${{ github.event.inputs.project_name }}"
+          PROJECT="${{ github.event.inputs.project_name }}"
+          DB_NAME="${{ github.event.inputs.d1_database_name }}"
+
+          echo "${{ github.event.inputs.encryption_key }}" | wrangler pages secret put ENCRYPTION_KEY --project-name "$PROJECT"
           if [ -n "${{ github.event.inputs.api_secret }}" ]; then
-            echo "${{ github.event.inputs.api_secret }}" | wrangler pages secret put API_SECRET --project-name "${{ github.event.inputs.project_name }}"
+            echo "${{ github.event.inputs.api_secret }}" | wrangler pages secret put API_SECRET --project-name "$PROJECT"
           fi
-          if [ -n "${{ github.event.inputs.demo_account_ids }}" ]; then
-            echo "${{ github.event.inputs.demo_account_ids }}" | wrangler pages secret put DEMO_ACCOUNT_IDS --project-name "${{ github.event.inputs.project_name }}"
+
+          # 从 D1 自动获取所有账户 ID 作为演示模式保护列表
+          echo "查询 D1 中的账户列表..."
+          ACCOUNT_IDS=$(wrangler d1 execute "$DB_NAME" --remote --command="SELECT GROUP_CONCAT(id) AS ids FROM accounts" --json 2>&1 || true)
+          DEMO_IDS=$(echo "$ACCOUNT_IDS" | grep -oP '"ids"\s*:\s*"[^"]*"' | grep -oP '(?<="ids":")[^"]*' || echo "")
+          if [ -n "$DEMO_IDS" ]; then
+            echo "保护账户 IDs: $DEMO_IDS"
+            echo "$DEMO_IDS" | wrangler pages secret put DEMO_ACCOUNT_IDS --project-name "$PROJECT"
+          else
+            echo "暂无账户，跳过 DEMO_ACCOUNT_IDS 设置"
           fi
 
       - name: Deploy to Cloudflare Pages
