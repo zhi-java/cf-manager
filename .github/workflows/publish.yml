@@ -52,19 +52,27 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.tag }}"
           PLAIN_VERSION="${VERSION#v}"
+          TARGET_HEADER="## [${PLAIN_VERSION}]"
           if [ -f CHANGELOG.md ]; then
-            # 提取从 "## [版本号]" 到下一个 "## [" 之间的内容
-            awk -v ver="## \\[${PLAIN_VERSION}\\]" '
+            # 使用 index() 固定字符串匹配，避免正则转义问题
+            awk -v target="$TARGET_HEADER" '
               BEGIN { found=0 }
-              $0 ~ ver && !found { found=1; next }
-              found && /^## \[/ { exit }
+              index($0, target) > 0 && !found { found=1; next }
+              found && index($0, "## [") == 1 { exit }
               found { print }
             ' CHANGELOG.md > /tmp/release_body.md
           fi
           if [ -s /tmp/release_body.md ]; then
             echo "has_changelog=true" >> $GITHUB_OUTPUT
+            echo "--- Changelog preview (first 200 chars) ---"
+            head -c 200 /tmp/release_body.md
+            echo ""
+            echo "--- End preview ---"
           else
             echo "has_changelog=false" >> $GITHUB_OUTPUT
+            echo "WARNING: No changelog extracted for version ${PLAIN_VERSION}"
+            echo "CHANGELOG headers found:"
+            grep "^## \[" CHANGELOG.md || echo "  (none)"
           fi
 
       - name: Create Release (from CHANGELOG.md)
