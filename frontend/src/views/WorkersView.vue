@@ -681,11 +681,23 @@ const resourceNameMap = ref<Record<string, string>>({});
 async function buildResourceNameMap() {
   const map: Record<string, string> = {};
   try {
-    const [kvResp, d1Resp, r2Resp] = await Promise.all([
+    const promises = [
       workersApi.getKvNamespaces(settingsAccountId.value).catch(() => null),
       workersApi.getD1Databases(settingsAccountId.value).catch(() => null),
-      workersApi.getR2Buckets(settingsAccountId.value).catch(() => null),
-    ]);
+    ];
+    // Only fetch R2 if available
+    if (r2Available.value) {
+      promises.push(workersApi.getR2Buckets(settingsAccountId.value).catch((err: any) => {
+        const msg = err?.response?.data?.error?.message || err?.message || '';
+        if (msg.includes('10042') || msg.includes('Please enable R2')) {
+          r2Available.value = false;
+        }
+        return null;
+      }));
+    } else {
+      promises.push(Promise.resolve(null));
+    }
+    const [kvResp, d1Resp, r2Resp] = await Promise.all(promises);
     const kvList = Array.isArray(kvResp?.data) ? kvResp.data : [];
     const d1List = Array.isArray(d1Resp?.data) ? d1Resp.data : [];
     const r2List = Array.isArray(r2Resp?.data) ? r2Resp.data : [];
