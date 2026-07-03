@@ -10,7 +10,7 @@
 
     <!-- Workers Usage per Account (compact) -->
     <div class="card-grid-scroll">
-      <n-grid v-if="usageData.length" :x-gap="8" :y-gap="8" cols="2 s:3 m:4 l:6 xl:8" responsive="screen" style="margin-bottom: 12px;">
+      <n-grid v-if="usageData.length" :x-gap="8" :y-gap="8" cols="1 s:2 m:4 l:6 xl:8" responsive="screen" style="margin-bottom: 12px;">
         <n-gi v-for="u in usageData" :key="u.accountId">
         <n-popover trigger="click" placement="bottom">
           <template #trigger>
@@ -1467,7 +1467,7 @@ onMounted(() => {
 }
 
 .card-grid-scroll {
-  max-height: 50vh;
+  max-height: 200px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }

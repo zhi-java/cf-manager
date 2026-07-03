@@ -6,7 +6,7 @@
       <div v-if="messages.length === 0" style="text-align: center; padding: 40px 20px 40px;">
         <!-- AI 用量统计 (compact) -->
         <div class="card-grid-scroll">
-        <n-grid v-if="usageData.length > 0" :x-gap="8" :y-gap="8" cols="2 s:3 m:4 l:6 xl:8" responsive="screen" style="margin-bottom: 20px; text-align: left;">
+        <n-grid v-if="usageData.length > 0" :x-gap="8" :y-gap="8" cols="1 s:2 m:4 l:6 xl:8" responsive="screen" style="margin-bottom: 20px; text-align: left;">
           <n-gi v-for="u in usageData" :key="u.accountId">
             <n-popover trigger="click" placement="bottom">
               <template #trigger>
@@ -473,7 +473,7 @@ watch(selectedAccount, () => {
 }
 
 .card-grid-scroll {
-  max-height: 50vh;
+  max-height: 200px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }

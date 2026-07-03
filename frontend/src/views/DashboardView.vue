@@ -35,7 +35,7 @@
       <div class="card-grid-scroll">
         <n-grid
           v-if="quotaWithResources.length > 0"
-          cols="2 s:3 m:5 l:6 xl:8"
+          cols="1 s:2 m:5 l:6 xl:8"
           :x-gap="8"
           :y-gap="8"
           responsive="screen"
@@ -192,7 +192,7 @@ onUnmounted(() => {
 }
 
 .card-grid-scroll {
-  max-height: 50vh;
+  max-height: 200px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
