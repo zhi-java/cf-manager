@@ -18,7 +18,7 @@ iwr -Uri https://raw.githubusercontent.com/hefy2027/cf-reg/master/install.bat -O
 
 ### 方式二：GitHub Actions 在线运行
 
-无需本地环境，直接在 GitHub 上运行：
+> ⚠️ **不建议 Fork 运行**，可能违反 GitHub 条款导致封号，推荐本地部署。
 
 1. Fork 本仓库
 2. 进入 **Actions** → **Run cf-reg**
@@ -38,7 +38,13 @@ cf-reg --headless --count 10
 cf-reg --password mypassword --count 3
 ```
 
-完成后账号信息导出到 `accounts.csv`。
+完成后账号信息会在 Summary 页面显示。
+
+## 免责声明
+
+- 不建议使用 Fork 方式运行，推荐本地或自有服务器部署
+- 使用 GitHub Actions 运行可能违反 GitHub 服务条款，由此导致的封号风险与本项目无关
+- 请遵守 Cloudflare 服务条款，本工具仅供学习研究使用
 
 ## 参数
 
