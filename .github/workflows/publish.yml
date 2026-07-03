@@ -47,7 +47,36 @@ jobs:
         working-directory: worker
         run: node build.js
 
-      - name: Create Release
+      - name: Extract changelog
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.tag }}"
+          PLAIN_VERSION="${VERSION#v}"
+          if [ -f CHANGELOG.md ]; then
+            awk -v ver="## [${PLAIN_VERSION}" '
+              BEGIN { found=0 }
+              $0 ~ ver { found=1; next }
+              found && /^## \[/ { exit }
+              found { print }
+            ' CHANGELOG.md > /tmp/release_body.md
+          fi
+          if [ -s /tmp/release_body.md ]; then
+            echo "has_changelog=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changelog=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release (from CHANGELOG.md)
+        if: steps.changelog.outputs.has_changelog == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          body_path: /tmp/release_body.md
+          files: worker/cf-manager.zip
+
+      - name: Create Release (auto-generated)
+        if: steps.changelog.outputs.has_changelog != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
