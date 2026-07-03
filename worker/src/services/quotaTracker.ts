@@ -1,4 +1,4 @@
-import { getActiveAccounts, getActiveAccountsByFeature, hasFeature, getAllQuotaToday, setQuota, incrementQuota, getQuotaByAccount, getQuotaTodayByResource, getAccountById, clearExhausted, setExhausted, type Account, type AccountFeature } from '../db/models';
+import { getActiveAccounts, getActiveAccountsByFeature, hasFeature, getAllQuotaToday, setQuota, incrementQuota, getQuotaByAccount, getQuotaTodayByResource, getAccountById, clearExhausted, setExhausted, addOptimisticD1, clearOptimisticD1, getOptimisticMapD1, getSetting, setSetting, type Account, type AccountFeature } from '../db/models';
 import type { Env } from '../types';
 import { cfGraphQL } from './cfApi';
 import { logger } from './logger';
@@ -134,18 +134,69 @@ export async function invalidateAiCache(env: Env): Promise<void> {
 }
 
 export async function clearOptimistic(env: Env, accountId: number): Promise<void> {
-  if (!env.KV) return;
-  const optimistic = await env.KV.get<OptimisticEntry>(KV_OPTIMISTIC_KEY, 'json') || {};
-  if (optimistic[accountId]) {
-    console.log(`[AI] Cleared optimistic for ${accountId}: was ${optimistic[accountId]}`);
-    delete optimistic[accountId];
-    if (Object.keys(optimistic).length > 0) {
-      await env.KV.put(KV_OPTIMISTIC_KEY, JSON.stringify(optimistic), { expirationTtl: 300 });
-    } else {
-      await env.KV.delete(KV_OPTIMISTIC_KEY);
+  if (env.KV) {
+    const optimistic = await env.KV.get<OptimisticEntry>(KV_OPTIMISTIC_KEY, 'json') || {};
+    if (optimistic[accountId]) {
+      console.log(`[AI] Cleared optimistic for ${accountId}: was ${optimistic[accountId]}`);
+      delete optimistic[accountId];
+      if (Object.keys(optimistic).length > 0) {
+        await env.KV.put(KV_OPTIMISTIC_KEY, JSON.stringify(optimistic), { expirationTtl: 300 });
+      } else {
+        await env.KV.delete(KV_OPTIMISTIC_KEY);
+      }
     }
+  } else {
+    // D1 fallback
+    await clearOptimisticD1(env.DB, accountId, 'ai_neurons');
   }
 }
+
+// ============ 存储抽象层 (KV 优先 / D1 兜底) ============
+
+async function readOptimistic(env: Env): Promise<OptimisticEntry> {
+  if (env.KV) {
+    return await env.KV.get<OptimisticEntry>(KV_OPTIMISTIC_KEY, 'json') || {};
+  }
+  const map = await getOptimisticMapD1(env.DB, 'ai_neurons');
+  const entry: OptimisticEntry = {};
+  for (const [k, v] of map) entry[k] = v;
+  return entry;
+}
+
+async function writeOptimistic(env: Env, optimistic: OptimisticEntry): Promise<void> {
+  if (env.KV) {
+    await env.KV.put(KV_OPTIMISTIC_KEY, JSON.stringify(optimistic), { expirationTtl: 300 });
+  }
+  // D1: written per-account via addOptimisticD1 below
+}
+
+async function addOptimisticOne(env: Env, accountId: number): Promise<void> {
+  if (env.KV) {
+    // handled in writeOptimistic
+  } else {
+    await addOptimisticD1(env.DB, accountId, 'ai_neurons', 1000);
+  }
+}
+
+async function readLastUsed(env: Env): Promise<{ id: number; time: number } | null> {
+  if (env.KV) {
+    return await env.KV.get<{ id: number; time: number }>(KV_LAST_USED_KEY, 'json');
+  }
+  const raw = await getSetting(env.DB, 'last_used_ai_account');
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+async function writeLastUsed(env: Env, accountId: number): Promise<void> {
+  const data = { id: accountId, time: Date.now() };
+  if (env.KV) {
+    await env.KV.put(KV_LAST_USED_KEY, JSON.stringify(data), { expirationTtl: 600 });
+  } else {
+    await setSetting(env.DB, 'last_used_ai_account', JSON.stringify(data));
+  }
+}
+
+// ============ selectBestAccount ============
 
 export async function selectBestAccount(
   env: Env,
@@ -160,7 +211,6 @@ export async function selectBestAccount(
     if (env.KV) {
       const cached = await env.KV.get<AiKvEntry[]>(KV_KEY, 'json');
       if (cached) {
-        // 加载快照后需要获取 account 对象
         const accounts = await getActiveAccountsByFeature(env.DB, 'ai');
         const accountMap = new Map(accounts.map(a => [a.id, a]));
         snapshot = cached.map(r => ({ ...r, _account: accountMap.get(r.id) })).filter(r => r._account);
@@ -173,11 +223,8 @@ export async function selectBestAccount(
 
     if (!snapshot || snapshot.length === 0) return null;
 
-    // 读取乐观预估量
-    let optimistic: OptimisticEntry = {};
-    if (env.KV) {
-      optimistic = await env.KV.get<OptimisticEntry>(KV_OPTIMISTIC_KEY, 'json') || {};
-    }
+    // 读取乐观预估量 (KV 或 D1)
+    const optimistic = await readOptimistic(env);
 
     // 按实际用量 + 乐观预估量排序
     snapshot.sort((a, b) => {
@@ -191,9 +238,9 @@ export async function selectBestAccount(
 
     const supportsCaching = model ? modelSupportsCaching(model) : false;
 
-    // 缓存模型：优先复用最近使用的账户（软粘性），提升缓存命中率
-    if (supportsCaching && env.KV) {
-      const lastUsed = await env.KV.get<{ id: number; time: number }>(KV_LAST_USED_KEY, 'json');
+    // 缓存模型：优先复用最近使用的账户（软粘性）
+    if (supportsCaching) {
+      const lastUsed = await readLastUsed(env);
       if (lastUsed) {
         const recent = snapshot.find(r => r.id === lastUsed.id && !excludeIds?.has(r.id));
         if (recent && recent !== best) {
@@ -202,23 +249,23 @@ export async function selectBestAccount(
           if (recentScore - bestScore <= CACHE_AFFINITY_THRESHOLD) {
             console.log(`[AI] Cache affinity: reusing ${recent.name} (gap=${recentScore - bestScore} <= ${CACHE_AFFINITY_THRESHOLD})`);
             optimistic[recent.id] = (optimistic[recent.id] || 0) + 1000;
-            await env.KV.put(KV_OPTIMISTIC_KEY, JSON.stringify(optimistic), { expirationTtl: 300 });
-            await env.KV.put(KV_LAST_USED_KEY, JSON.stringify({ id: recent.id, time: Date.now() }), { expirationTtl: 600 });
+            await writeOptimistic(env, optimistic);
+            await addOptimisticOne(env, recent.id);
+            await writeLastUsed(env, recent.id);
             return recent._account || null;
           }
         }
       }
     }
 
-    // 乐观更新：记录 1000 神经元的预估用量
-    if (env.KV) {
-      optimistic[best.id] = (optimistic[best.id] || 0) + 1000;
-      await env.KV.put(KV_OPTIMISTIC_KEY, JSON.stringify(optimistic), { expirationTtl: 300 });
-      if (supportsCaching) {
-        await env.KV.put(KV_LAST_USED_KEY, JSON.stringify({ id: best.id, time: Date.now() }), { expirationTtl: 600 });
-      }
-      console.log(`[AI] Selected ${best.name}, optimistic +1000 (total: ${optimistic[best.id]})`);
+    // 乐观更新
+    optimistic[best.id] = (optimistic[best.id] || 0) + 1000;
+    await writeOptimistic(env, optimistic);
+    await addOptimisticOne(env, best.id);
+    if (supportsCaching) {
+      await writeLastUsed(env, best.id);
     }
+    console.log(`[AI] Selected ${best.name}, optimistic +1000 (total: ${optimistic[best.id]})`);
 
     return best._account || null;
   }
