@@ -506,10 +506,6 @@ export async function deployPages(
   const accountId = account.account_id;
   if (!accountId) throw new Error('Account ID is required');
 
-  for (const f of files) {
-    f.path = f.path.replace(/\\/g, '/').replace(/^\/+/, '');
-  }
-
   const cf = getCfClient(account);
 
   // 1. Create project if not exists (skip if skipCreateProject is true)
@@ -521,7 +517,18 @@ export async function deployPages(
     }
   }
 
-  // 2. Build manifest + deployment params
+  // 2. If no files, just create the project (empty project)
+  if (!files || files.length === 0) {
+    console.log(`[Pages Deploy] Created empty project: ${projectName}`);
+    const projectInfo = await cf.pages.projects.get(projectName, { account_id: accountId! });
+    return projectInfo;
+  }
+
+  // 3. Build manifest + deployment params
+  for (const f of files) {
+    f.path = f.path.replace(/\\/g, '/').replace(/^\/+/, '');
+  }
+
   const manifest: Record<string, string> = {};
   const params: Record<string, any> = {
     account_id: accountId,
@@ -540,6 +547,6 @@ export async function deployPages(
 
   console.log(`[Pages Deploy] ${files.length} files, manifest:`, Object.keys(manifest).slice(0, 5).join(', '), '...');
 
-  // 3. Deploy via SDK (handles multipart form construction)
+  // 4. Deploy via SDK (handles multipart form construction)
   return cf.pages.projects.deployments.create(projectName, params as any);
 }

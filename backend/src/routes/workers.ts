@@ -139,42 +139,44 @@ async function handlePagesDeploy(req: Request, res: Response, next: NextFunction
     if (!account) return;
     const name = req.body.name as string;
     if (!name) { res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Project name is required' } }); return; }
-    if (!req.files || (req.files as Express.Multer.File[]).length === 0) {
-      res.status(400).json({ error: { code: 'NO_FILES', message: 'At least one file is required' } }); return;
-    }
-    const uploadedFiles = req.files as Express.Multer.File[];
-    console.log(`[Pages Deploy Route] Received ${uploadedFiles.length} files: ${uploadedFiles.map(f => f.originalname).join(', ')}`);
+    
+    const uploadedFiles = req.files as Express.Multer.File[] | undefined;
     let files: Array<{ path: string; buffer: Buffer }> = [];
+    
     // Check if it's a single zip file
-    if (uploadedFiles.length === 1 && uploadedFiles[0].originalname?.toLowerCase().endsWith('.zip')) {
-      const zip = new AdmZip(uploadedFiles[0].buffer);
-      const entries = zip.getEntries();
-      const filePaths = entries.filter(e => !e.isDirectory).map(e => e.entryName.replace(/\\/g, '/'));
-      let prefix = '';
-      if (filePaths.length > 0) {
-        const parts = filePaths[0].split('/');
-        if (parts.length > 1) {
-          const candidate = parts[0] + '/';
-          if (filePaths.every(p => p.startsWith(candidate))) {
-            prefix = candidate;
+    if (uploadedFiles && uploadedFiles.length > 0) {
+      console.log(`[Pages Deploy Route] Received ${uploadedFiles.length} files: ${uploadedFiles.map(f => f.originalname).join(', ')}`);
+      if (uploadedFiles.length === 1 && uploadedFiles[0].originalname?.toLowerCase().endsWith('.zip')) {
+        const zip = new AdmZip(uploadedFiles[0].buffer);
+        const entries = zip.getEntries();
+        const filePaths = entries.filter(e => !e.isDirectory).map(e => e.entryName.replace(/\\/g, '/'));
+        let prefix = '';
+        if (filePaths.length > 0) {
+          const parts = filePaths[0].split('/');
+          if (parts.length > 1) {
+            const candidate = parts[0] + '/';
+            if (filePaths.every(p => p.startsWith(candidate))) {
+              prefix = candidate;
+            }
           }
         }
-      }
-      for (const entry of entries) {
-        if (!entry.isDirectory) {
-          const p = entry.entryName.replace(/\\/g, '/');
-          files.push({ path: prefix ? p.slice(prefix.length) : p, buffer: entry.getData() });
+        for (const entry of entries) {
+          if (!entry.isDirectory) {
+            const p = entry.entryName.replace(/\\/g, '/');
+            files.push({ path: prefix ? p.slice(prefix.length) : p, buffer: entry.getData() });
+          }
         }
+      } else {
+        files = uploadedFiles.map(f => ({
+          path: (f as any).originalname || f.fieldname,
+          buffer: f.buffer,
+        }));
       }
-    } else {
-      files = uploadedFiles.map(f => ({
-        path: (f as any).originalname || f.fieldname,
-        buffer: f.buffer,
-      }));
     }
+    
     const skipCreateProject = req.body.skipCreateProject === 'true' || req.body.skipCreateProject === true;
     const result = await deployPages(account, name, files, skipCreateProject);
-    createAuditLog(account.id, 'deploy_pages', name, `${files.length} files`, 'success');
+    createAuditLog(account.id, 'deploy_pages', name, files.length > 0 ? `${files.length} files` : 'empty project', 'success');
     console.log(`[Pages Deploy Route] Success for ${name}`);
     res.status(201).json(result);
   } catch (err: any) {
