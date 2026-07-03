@@ -421,7 +421,7 @@ app.post('/:accountId/pages/deploy', async (c) => {
   if (!name) return c.json({ error: { code: 'VALIDATION_ERROR', message: 'Project name is required' } }, 400);
 
   const skipCreateProject = formData.get('skipCreateProject') === 'true';
-  const uploadedFiles = formData.getAll('files') as File[];
+  const uploadedFiles = formData.getAll('files') as unknown as File[];
 
   let files: Array<{ path: string; buffer: Uint8Array }> = [];
 
@@ -465,18 +465,30 @@ app.post('/:accountId/pages/deploy', async (c) => {
     return c.json(project.result || project, 201);
   }
 
+  const SPECIAL_FILES = new Set(['_worker.js', '_worker.bundle', '_headers', '_redirects', '_routes.json', 'functions-filepath-routing-config.json']);
+
   const manifest: Record<string, string> = {};
   const deployForm = new FormData();
+  const specialFiles: Array<{ name: string; buffer: Uint8Array }> = [];
 
   for (const f of files) {
-    const hash = await sha256Hex(f.buffer);
-    manifest[f.path] = hash;
-    deployForm.append(f.path, new Blob([f.buffer], { type: 'application/octet-stream' }), f.path);
+    const basename = f.path.split('/').pop() || f.path;
+    if (SPECIAL_FILES.has(basename) && !f.path.includes('/')) {
+      specialFiles.push({ name: basename, buffer: f.buffer });
+    } else {
+      const hash = await sha256Hex(f.buffer);
+      manifest[f.path] = hash;
+      deployForm.append(f.path, new Blob([f.buffer], { type: 'application/octet-stream' }), f.path);
+    }
   }
 
   deployForm.append('manifest', JSON.stringify(manifest));
   deployForm.append('branch', 'main');
   deployForm.append('commit_message', 'Deploy via CF Manager');
+
+  for (const sf of specialFiles) {
+    deployForm.append(sf.name, new Blob([sf.buffer]), sf.name);
+  }
 
   const resp = await cfFetchRaw(account, `/accounts/${account.account_id}/pages/projects/${name}/deployments`, c.env.ENCRYPTION_KEY, {
     method: 'POST', body: deployForm,
@@ -563,16 +575,26 @@ app.post('/batch-deploy-pages', async (c) => {
         if (!e.body?.includes('already exists') && e.status !== 409) throw e;
       }
 
+      const SPECIAL_FILES = new Set(['_worker.js', '_worker.bundle', '_headers', '_redirects', '_routes.json', 'functions-filepath-routing-config.json']);
       const manifest: Record<string, string> = {};
       const deployForm = new FormData();
+      const specialFiles: Array<{ name: string; buffer: Uint8Array }> = [];
       for (const f of files) {
-        const hash = await sha256Hex(f.buffer);
-        manifest[f.path] = hash;
-        deployForm.append(f.path, new Blob([f.buffer], { type: 'application/octet-stream' }), f.path);
+        const basename = f.path.split('/').pop() || f.path;
+        if (SPECIAL_FILES.has(basename) && !f.path.includes('/')) {
+          specialFiles.push({ name: basename, buffer: f.buffer });
+        } else {
+          const hash = await sha256Hex(f.buffer);
+          manifest[f.path] = hash;
+          deployForm.append(f.path, new Blob([f.buffer], { type: 'application/octet-stream' }), f.path);
+        }
       }
       deployForm.append('manifest', JSON.stringify(manifest));
       deployForm.append('branch', 'main');
       deployForm.append('commit_message', 'Batch deploy via CF Manager');
+      for (const sf of specialFiles) {
+        deployForm.append(sf.name, new Blob([sf.buffer]), sf.name);
+      }
 
       const resp = await cfFetchRaw(account, `/accounts/${account.account_id}/pages/projects/${t.workerName}/deployments`, c.env.ENCRYPTION_KEY, {
         method: 'POST', body: deployForm,

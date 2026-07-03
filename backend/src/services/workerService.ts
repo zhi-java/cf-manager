@@ -510,7 +510,9 @@ export async function deployPages(
     return projectInfo;
   }
 
-  // 3. Build manifest + deployment params
+  // 3. Build manifest + deployment params, separating special files
+  const SPECIAL_FILES = new Set(['_worker.js', '_worker.bundle', '_headers', '_redirects', '_routes.json', 'functions-filepath-routing-config.json']);
+
   for (const f of files) {
     f.path = f.path.replace(/\\/g, '/').replace(/^\/+/, '');
   }
@@ -526,8 +528,13 @@ export async function deployPages(
   };
 
   for (const f of files) {
-    manifest[f.path] = crypto.createHash('sha256').update(f.buffer).digest('hex');
-    params[f.path] = new File([new Uint8Array(f.buffer)], f.path, { type: 'application/octet-stream' });
+    const basename = f.path.split('/').pop() || f.path;
+    if (SPECIAL_FILES.has(basename) && !f.path.includes('/')) {
+      params[basename] = new File([new Uint8Array(f.buffer)], basename);
+    } else {
+      manifest[f.path] = crypto.createHash('sha256').update(f.buffer).digest('hex');
+      params[f.path] = new File([new Uint8Array(f.buffer)], f.path, { type: 'application/octet-stream' });
+    }
   }
   params.manifest = JSON.stringify(manifest);
 
