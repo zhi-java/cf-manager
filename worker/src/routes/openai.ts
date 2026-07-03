@@ -3,9 +3,10 @@ import { stream } from 'hono/streaming';
 import type { Env } from '../types';
 import { setExhausted, incrementQuota, addAuditLog, getActiveAccountsByFeature } from '../db/models';
 import { getAuthHeaders, cfFetchRaw } from '../services/cfApi';
-import { selectBestAccount, invalidateAiCache } from '../services/quotaTracker';
+import { selectBestAccount, invalidateAiCache, clearOptimistic } from '../services/quotaTracker';
 import { estimateNeurons } from '../services/pricing';
 import { getRequestId } from '../middleware/requestId';
+import { logger } from '../services/logger';
 
 /** Upstream status codes that should trigger account rotation. */
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -83,9 +84,9 @@ async function processWorkerSuccess(
         if (buffer) {
           if (buffer.startsWith('data: ') && buffer.slice(6).trim() === '[DONE]') seenDone = true;
         }
-      } catch (err: any) {
+        } catch (err: any) {
         streamStatus = 'upstream_error';
-        console.error(`[AI][${rid}] Stream error: ${err.message}`);
+        logger.error('openai', `[${rid}] Stream error: ${err.message}`);
       } finally {
         if (!seenDone) writeSseDone(s);
 
@@ -93,10 +94,11 @@ async function processWorkerSuccess(
         if (finalUsage) {
           const neurons = estimateNeurons(body.model, finalUsage.prompt_tokens || 0, finalUsage.completion_tokens || 0);
           await incrementQuota(env.DB, account.id, 'ai_neurons', neurons);
+          await clearOptimistic(env, account.id);  // 清除乐观预估
           await invalidateAiCache(env);
           try {
             await addAuditLog(env.DB, {
-              account_id: account.id, action: 'ai_inference', target: body.model,
+              account_id: account.id, action: 'ai_chat_completion', target: body.model,
               detail: `[${rid}] stream tokens: in=${finalUsage.prompt_tokens || 0} out=${finalUsage.completion_tokens || 0} total=${finalUsage.total_tokens || 0} neurons=${neurons}`,
               status: streamStatus === 'success' ? 'success' : 'error',
             });
@@ -104,7 +106,7 @@ async function processWorkerSuccess(
         } else {
           try {
             await addAuditLog(env.DB, {
-              account_id: account.id, action: 'ai_inference', target: body.model,
+              account_id: account.id, action: 'ai_chat_completion', target: body.model,
               detail: `[${rid}] stream ${streamStatus} tokens: none (no usage in SSE)`,
               status: streamStatus === 'success' ? 'success' : 'error',
             });
@@ -125,11 +127,12 @@ async function processWorkerSuccess(
   if (data.usage) {
     neurons = estimateNeurons(body.model, data.usage.prompt_tokens || 0, data.usage.completion_tokens || 0);
     await incrementQuota(env.DB, account.id, 'ai_neurons', neurons);
+    await clearOptimistic(env, account.id);  // 清除乐观预估
     await invalidateAiCache(env);
   }
   try {
     await addAuditLog(env.DB, {
-      account_id: account.id, action: 'ai_inference', target: body.model,
+      account_id: account.id, action: 'ai_chat_completion', target: body.model,
       detail: `[${rid}] non-stream tokens: in=${data.usage?.prompt_tokens || 0} out=${data.usage?.completion_tokens || 0} total=${data.usage?.total_tokens || 0} neurons=${neurons}`,
       status: 'success',
     });
@@ -233,9 +236,9 @@ app.post('/chat/completions', async (c) => {
       }
     } catch (netErr: any) {
       const errMsg = `Network error: ${netErr.message || netErr}`;
-      console.warn(`[AI][${rid}] Account ${account.name} ${errMsg}`);
+      logger.warn('openai', `[${rid}] Account ${account.name} ${errMsg}`);
       lastError = errMsg;
-      try { await addAuditLog(c.env.DB, { account_id: account.id, action: 'ai_inference', target: body.model, detail: `[${rid}] ${errMsg}`, status: 'error' }); } catch {}
+      try { await addAuditLog(c.env.DB, { account_id: account.id, action: 'ai_chat_completion', target: body.model, detail: `[${rid}] ${errMsg}`, status: 'error' }); } catch {}
       const count = (retryCount.get(account.id) || 0) + 1;
       retryCount.set(account.id, count);
       if (count >= MAX_RETRY_PER_ACCOUNT) skipped.add(account.id);
@@ -248,13 +251,13 @@ app.post('/chat/completions', async (c) => {
 
       if (isRetryableError(cfResp.status, errorText)) {
         if (isNeuronLimitError(errorText)) {
-          console.warn(`[AI][${rid}] Account ${account.name} neuron limit hit (4006), rotating`);
+          logger.warn('openai', `[${rid}] Account ${account.name} neuron limit hit (4006), rotating`);
           await setExhausted(c.env.DB, account.id, 'ai_neurons');
           await invalidateAiCache(c.env);
-          try { await addAuditLog(c.env.DB, { account_id: account.id, action: 'ai_inference', target: body.model, detail: `[${rid}] 4006 switching`, status: 'error' }); } catch {}
+          try { await addAuditLog(c.env.DB, { account_id: account.id, action: 'ai_chat_completion', target: body.model, detail: `[${rid}] 4006 switching`, status: 'error' }); } catch {}
         } else {
-          console.warn(`[AI][${rid}] Account ${account.name} upstream ${cfResp.status}, rotating`);
-          try { await addAuditLog(c.env.DB, { account_id: account.id, action: 'ai_inference', target: body.model, detail: `[${rid}] upstream ${cfResp.status}, switching`, status: 'error' }); } catch {}
+          logger.warn('openai', `[${rid}] Account ${account.name} upstream ${cfResp.status}, rotating`);
+          try { await addAuditLog(c.env.DB, { account_id: account.id, action: 'ai_chat_completion', target: body.model, detail: `[${rid}] upstream ${cfResp.status}, switching`, status: 'error' }); } catch {}
         }
         continue;
       }
@@ -267,7 +270,7 @@ app.post('/chat/completions', async (c) => {
   }
 
   // 无账户可用
-  console.error(`[AI][${rid}] All accounts exhausted. Last error: ${lastError}`);
+  logger.error('openai', `[${rid}] All accounts exhausted. Last error: ${lastError}`);
   return c.json({ error: { message: 'All accounts exhausted', type: 'quota_exceeded', code: 'ALL_ACCOUNTS_EXHAUSTED', last_error: lastError || 'Unknown error' } }, 429);
 });
 

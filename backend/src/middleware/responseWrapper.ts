@@ -9,8 +9,9 @@ export function responseWrapper(_req: Request, res: Response, next: NextFunction
 
   res.json = function (body: any) {
     // Skip wrapping for all OpenAI-compatible paths (/api/v1/*), keep original format.
-    // This ensures error responses ({ error: { ... } }) are not wrapped into { success: false, error: ... }.
-    if (_req.path.startsWith('/api/v1')) {
+    // Note: middleware is mounted at app.use('/api', ...), so req.path is already stripped of /api.
+    // For /api/v1/chat/completions, req.path is /v1/chat/completions.
+    if (_req.path.startsWith('/v1')) {
       return originalJson(body);
     }
     // Skip wrapping for OpenAI format responses (returned by /api/v1/* routes)

@@ -1,6 +1,7 @@
 import { getActiveAccounts, getActiveAccountsByFeature, hasFeature, getAllQuotaToday, setQuota, incrementQuota, getQuotaByAccount, getQuotaTodayByResource, getAccountById, clearExhausted, setExhausted, type Account, type AccountFeature } from '../db/models';
 import type { Env } from '../types';
 import { cfGraphQL } from './cfApi';
+import { logger } from './logger';
 
 export type ResourceType = 'workers_requests' | 'ai_neurons' | 'browser_render_seconds';
 
@@ -12,12 +13,17 @@ export const LIMITS: Record<string, number> = {
 
 const KV_KEY = 'ai_neuron_snapshot';
 const KV_TTL = 60; // seconds
+const KV_OPTIMISTIC_KEY = 'ai_neuron_optimistic';
 
 interface AiKvEntry {
   id: number;
   account_id: string;
   name: string;
   used: number;
+}
+
+interface OptimisticEntry {
+  [accountId: number]: number;  // accountId -> optimistic neurons
 }
 
 const RESOURCE_FEATURE: Record<ResourceType, AccountFeature> = {
@@ -37,10 +43,16 @@ export async function syncUsageFromCloudflare(db: D1Database, encryptionKey: str
     if (hasFeature(account, 'ai')) {
       try {
         const usage = await getAiUsageToday(account, encryptionKey);
-        await setQuota(db, account.id, 'ai_neurons', Math.round(usage.totalNeurons));
-        await clearExhausted(db, account.id, 'ai_neurons');
+        if (usage.totalNeurons > 0) {
+          // CF 返回非零 → 以 CF 数据为准
+          await setQuota(db, account.id, 'ai_neurons', Math.round(usage.totalNeurons));
+          await clearExhausted(db, account.id, 'ai_neurons');
+        } else {
+          // CF 返回 0 → 保留本地数据，不覆盖
+          logger.info('sync', `${account.name}: CF returned 0 neurons, keeping local data`);
+        }
       } catch (e) {
-        console.error(`[Sync] AI usage failed for ${account.name}: ${e}`);
+        logger.error('sync', `AI usage failed for ${account.name}: ${e}`);
       }
     }
     if (hasFeature(account, 'workers')) {
@@ -48,7 +60,7 @@ export async function syncUsageFromCloudflare(db: D1Database, encryptionKey: str
         const usage = await getWorkersUsageToday(account, encryptionKey);
         await setQuota(db, account.id, 'workers_requests', usage.requests);
       } catch (e) {
-        console.error(`[Sync] Workers usage failed for ${account.name}: ${e}`);
+        logger.error('sync', `Workers usage failed for ${account.name}: ${e}`);
       }
     }
   }));
@@ -111,23 +123,69 @@ export async function invalidateAiCache(env: Env): Promise<void> {
   if (env.KV) await env.KV.delete(KV_KEY);
 }
 
+export async function clearOptimistic(env: Env, accountId: number): Promise<void> {
+  if (!env.KV) return;
+  const optimistic = await env.KV.get<OptimisticEntry>(KV_OPTIMISTIC_KEY, 'json') || {};
+  if (optimistic[accountId]) {
+    console.log(`[AI] Cleared optimistic for ${accountId}: was ${optimistic[accountId]}`);
+    delete optimistic[accountId];
+    if (Object.keys(optimistic).length > 0) {
+      await env.KV.put(KV_OPTIMISTIC_KEY, JSON.stringify(optimistic), { expirationTtl: 300 });
+    } else {
+      await env.KV.delete(KV_OPTIMISTIC_KEY);
+    }
+  }
+}
+
 export async function selectBestAccount(
   env: Env,
   resource: ResourceType,
   excludeIds?: Set<number>
 ): Promise<Account | null> {
   if (resource === 'ai_neurons') {
+    let snapshot: Array<AiKvEntry & { _account?: Account }>;
+    
+    // 从 KV 或 DB 获取快照
     if (env.KV) {
       const cached = await env.KV.get<AiKvEntry[]>(KV_KEY, 'json');
       if (cached) {
-        const best = cached.find(r => !excludeIds?.has(r.id));
-        if (!best) return null;
-        return await getAccountById(env.DB, best.id);
+        // 加载快照后需要获取 account 对象
+        const accounts = await getActiveAccountsByFeature(env.DB, 'ai');
+        const accountMap = new Map(accounts.map(a => [a.id, a]));
+        snapshot = cached.map(r => ({ ...r, _account: accountMap.get(r.id) })).filter(r => r._account);
+      } else {
+        snapshot = await getAiSnapshot(env);
       }
+    } else {
+      snapshot = await getAiSnapshot(env);
     }
-    const snapshot = await getAiSnapshot(env);
+
+    if (!snapshot || snapshot.length === 0) return null;
+
+    // 读取乐观预估量
+    let optimistic: OptimisticEntry = {};
+    if (env.KV) {
+      optimistic = await env.KV.get<OptimisticEntry>(KV_OPTIMISTIC_KEY, 'json') || {};
+    }
+
+    // 按实际用量 + 乐观预估量排序
+    snapshot.sort((a, b) => {
+      const aTotal = a.used + (optimistic[a.id] || 0);
+      const bTotal = b.used + (optimistic[b.id] || 0);
+      return aTotal - bTotal;
+    });
+
     const best = snapshot.find(r => !excludeIds?.has(r.id));
-    return best?._account || null;
+    if (!best) return null;
+
+    // 乐观更新：记录 1000 神经元的预估用量
+    if (env.KV) {
+      optimistic[best.id] = (optimistic[best.id] || 0) + 1000;
+      await env.KV.put(KV_OPTIMISTIC_KEY, JSON.stringify(optimistic), { expirationTtl: 300 });  // 5分钟过期
+      console.log(`[AI] Selected ${best.name}, optimistic +1000 (total: ${optimistic[best.id]})`);
+    }
+
+    return best._account || null;
   }
 
   // Non-ai_neurons branch keeps original logic

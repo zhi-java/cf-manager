@@ -8,6 +8,7 @@ import { createAuditLog } from '../models/auditLog';
 import { proxyFetch } from '../services/proxyService';
 import { appLogger } from '../services/logger';
 import { setExhausted, incrementQuota } from '../models/quotaUsage';
+import { safeRandomUUID } from '../utils';
 import { updateAiCacheAfterUsage, removeAccountFromAiCache } from '../services/accountRouter';
 import { estimateNeurons } from '../services/pricing';
 
@@ -113,7 +114,7 @@ router.post('/chat/completions', async (req: Request, res: Response, next: NextF
       } catch (netErr: any) {
         const errMsg = `Network error: ${netErr.message || netErr}`;
         appLogger.error(`[AI][${rid}] Specified account ${account.name} ${errMsg}`);
-        createAuditLog(account.id, 'ai_inference', req.body.model, `[${rid}] ${errMsg}`, 'error');
+        createAuditLog(account.id, 'ai_chat_completion', req.body.model, `[${rid}] ${errMsg}`, 'error');
         res.status(502).json({
           error: { message: errMsg, type: 'upstream_error', code: 'NETWORK_ERROR' },
         });
@@ -146,7 +147,7 @@ router.post('/chat/completions', async (req: Request, res: Response, next: NextF
         const errMsg = `Network error: ${netErr.message || netErr}`;
         appLogger.warn(`[AI][${rid}] Account ${account.name} ${errMsg}`);
         lastError = errMsg;
-        createAuditLog(account.id, 'ai_inference', req.body.model, `[${rid}] ${errMsg}`, 'error');
+        createAuditLog(account.id, 'ai_chat_completion', req.body.model, `[${rid}] ${errMsg}`, 'error');
 
         const retries = (retryCount.get(account.id) || 0) + 1;
         retryCount.set(account.id, retries);
@@ -167,7 +168,7 @@ router.post('/chat/completions', async (req: Request, res: Response, next: NextF
             appLogger.warn(`[AI][${rid}] Account ${account.name} neuron limit hit (4006), rotating`);
             setExhausted(account.id, 'ai_neurons');
             removeAccountFromAiCache(account.id);
-            createAuditLog(account.id, 'ai_inference', req.body.model, `[${rid}] 4006 neuron limit, switching`, 'error');
+            createAuditLog(account.id, 'ai_chat_completion', req.body.model, `[${rid}] 4006 neuron limit, switching`, 'error');
           } else {
             // Other retryable error — increment retry count
             const retries = (retryCount.get(account.id) || 0) + 1;
@@ -178,7 +179,7 @@ router.post('/chat/completions', async (req: Request, res: Response, next: NextF
             } else {
               appLogger.warn(`[AI][${rid}] Account ${account.name} upstream ${cfResp.status}, rotating`);
             }
-            createAuditLog(account.id, 'ai_inference', req.body.model,
+            createAuditLog(account.id, 'ai_chat_completion', req.body.model,
               `[${rid}] upstream ${cfResp.status}, switching`, 'error');
           }
           continue;
@@ -343,12 +344,12 @@ async function processAccount(
         incrementQuota(account.id, 'ai_neurons', neurons);
         updateAiCacheAfterUsage(account.id, neurons);
         appLogger.debug(`[AI][${rid}] estimated ${neurons} neurons for account ${account.name}`);
-        createAuditLog(account.id, 'ai_inference', req.body.model,
+        createAuditLog(account.id, 'ai_chat_completion', req.body.model,
           `[${rid}] stream tokens: in=${finalUsage.prompt_tokens || 0} out=${finalUsage.completion_tokens || 0} total=${finalUsage.total_tokens || 0} neurons=${neurons}`,
           streamStatus === 'success' ? 'success' : 'error');
       } else {
         appLogger.warn(`[AI][${rid}] stream ended without usage, skipping local estimate`);
-        createAuditLog(account.id, 'ai_inference', req.body.model,
+        createAuditLog(account.id, 'ai_chat_completion', req.body.model,
           `[${rid}] stream ${streamStatus} tokens: none (no usage in SSE)`,
           streamStatus === 'success' ? 'success' : 'error');
       }
@@ -358,7 +359,7 @@ async function processAccount(
     const data = await cfResp!.json() as any;
 
     // Normalize response to match OpenAI format
-    if (!data.id) data.id = `chatcmpl-${crypto.randomUUID()}`;
+    if (!data.id) data.id = `chatcmpl-${safeRandomUUID()}`;
     if (!data.object) data.object = 'chat.completion';
     if (!data.model && req.body.model) data.model = req.body.model;
     if (!data.usage) data.usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
@@ -377,7 +378,7 @@ async function processAccount(
     }
 
     res.json(data);
-    createAuditLog(account.id, 'ai_inference', req.body.model,
+    createAuditLog(account.id, 'ai_chat_completion', req.body.model,
       `[${rid}] non-stream tokens: in=${data?.usage?.prompt_tokens || 0} out=${data?.usage?.completion_tokens || 0} total=${data?.usage?.total_tokens || 0} neurons=${neurons}`,
       'success');
   }

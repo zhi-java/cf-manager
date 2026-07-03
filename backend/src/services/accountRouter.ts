@@ -20,6 +20,7 @@ interface Zone {
 interface AiSnapshotEntry {
   account: Account;
   used: number;
+  _optimistic?: number;  // 乐观预估量，在 updateAiCacheAfterUsage 时修正
 }
 
 const zonesCache = new NodeCache({ stdTTL: ZONES_CACHE_TTL });
@@ -72,9 +73,14 @@ const RESOURCE_FEATURE_MAP: Record<ResourceType, AccountFeature> = {
 
 function getAiAccountSnapshot(): AiSnapshotEntry[] {
   const cached = quotaCache.get<AiSnapshotEntry[]>(AI_CACHE_KEY);
-  if (cached) return cached;
+  if (cached) {
+    appLogger.debug(`[AccountRouter] Using cached AI snapshot: ${cached.length} accounts, first=${cached[0]?.account.name}, used=${cached[0]?.used}`);
+    return cached;
+  }
 
   const accounts = getActiveAccountsByFeature('ai');
+  appLogger.info(`[AccountRouter] Found ${accounts.length} active accounts with AI feature`);
+  
   const usageRows = getQuotaTodayByResource('ai_neurons');
   const usageMap = new Map(usageRows.map(r => [r.account_id, r]));
 
@@ -83,11 +89,14 @@ function getAiAccountSnapshot(): AiSnapshotEntry[] {
       const usage = usageMap.get(account.id);
       const used = usage?.count || 0;
       const exhausted = usage?.exhausted === 1;
+      appLogger.debug(`[AccountRouter] Account ${account.name}: used=${used}, exhausted=${exhausted}`);
       return { account, used, exhausted };
     })
     .filter(r => !r.exhausted)
     .sort((a, b) => a.used - b.used)
     .map(r => ({ account: r.account, used: r.used }));
+
+  appLogger.info(`[AccountRouter] Final ranked list: ${ranked.map(r => `${r.account.name}(${r.used})`).join(', ')}`);
 
   quotaCache.set(AI_CACHE_KEY, ranked, AI_CACHE_TTL);
   return ranked;
@@ -99,7 +108,15 @@ export async function selectBestAccount(
 ): Promise<Account | null> {
   if (resource === 'ai_neurons') {
     const list = getAiAccountSnapshot();
-    return list.find(r => !excludeIds?.has(r.account.id))?.account || null;
+    // 按实际用量 + 乐观预估量排序，避免并发选中同一账户
+    list.sort((a, b) => (a.used + (a._optimistic || 0)) - (b.used + (b._optimistic || 0)));
+    const selected = list.find(r => !excludeIds?.has(r.account.id));
+    if (selected) {
+      // 乐观预估：标记该账户有 1000 神经元的待定请求
+      selected._optimistic = (selected._optimistic || 0) + 1000;
+      appLogger.debug(`[AccountRouter] Selected account: ${selected.account.name} (optimistic +1000, total optimistic: ${selected._optimistic})`);
+    }
+    return selected?.account || null;
   }
 
   // 非 ai_neurons 分支保持原逻辑
@@ -132,11 +149,22 @@ export function invalidateAiCache(): void {
 
 export function updateAiCacheAfterUsage(accountId: number, neurons: number): void {
   const list = quotaCache.get<AiSnapshotEntry[]>(AI_CACHE_KEY);
-  if (!list) return;
+  if (!list) {
+    appLogger.warn(`[AccountRouter] updateAiCacheAfterUsage: cache not found for account ${accountId}`);
+    return;
+  }
   const item = list.find(r => r.account.id === accountId);
   if (item) {
+    const oldUsed = item.used;
+    const oldOptimistic = item._optimistic || 0;
+    // 加固用量，清除乐观预估
     item.used += neurons;
-    list.sort((a, b) => a.used - b.used);
+    delete item._optimistic;
+    // 重新按实际用量 + 剩余乐观预估排序
+    list.sort((a, b) => (a.used + (a._optimistic || 0)) - (b.used + (b._optimistic || 0)));
+    appLogger.info(`[AccountRouter] Updated cache: ${item.account.name} ${oldUsed} → ${item.used} (+${neurons} real, cleared ${oldOptimistic} optimistic), new order: ${list.map(r => `${r.account.name}(${r.used}+${r._optimistic || 0})`).join(', ')}`);
+  } else {
+    appLogger.warn(`[AccountRouter] updateAiCacheAfterUsage: account ${accountId} not found in cache`);
   }
 }
 

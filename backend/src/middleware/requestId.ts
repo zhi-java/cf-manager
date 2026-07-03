@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { safeRandomUUID } from '../utils';
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -12,7 +13,7 @@ declare module 'express-serve-static-core' {
  * logs, audit entries, and client responses can be correlated.
  */
 export function requestIdMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const id = (req.headers['x-request-id'] as string) || crypto.randomUUID();
+  const id = (req.headers['x-request-id'] as string) || safeRandomUUID();
   req.requestId = id;
   res.setHeader('X-Request-ID', id);
   next();

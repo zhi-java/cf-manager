@@ -15,6 +15,7 @@ backups/
 .vscode
 *.sw?
 
+docs/specs
 worker/public/
 worker/cf-manager.zip
 
@@ -29,3 +30,6 @@ worker/src/data/
 .aider/
 .windsurf/
 .github/copilot/
+
+# Ignore CSV files with credentials
+*.csv
