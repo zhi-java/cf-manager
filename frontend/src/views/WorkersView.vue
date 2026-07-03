@@ -664,7 +664,14 @@ function parseBindings(configs: any): any[] {
   const typeLabels: Record<string, string> = { kv_namespaces: 'KV', d1_databases: 'D1', r2_buckets: 'R2', services: 'Service', queue_producers: 'Queue', durable_object_namespaces: 'DO', browsers: 'Browser', analytics_engine_datasets: 'Analytics' };
   for (const [typeKey, label] of Object.entries(typeLabels)) {
     const bindings = production[typeKey];
-    if (bindings && typeof bindings === 'object') {
+    if (!bindings) continue;
+    if (Array.isArray(bindings)) {
+      for (const item of bindings) {
+        const name = item.name || item.binding || '';
+        const value = item.namespace_id || item.id || item.bucket_name || item.dataset || item.service || JSON.stringify(item);
+        list.push({ type: label, typeKey, name, value });
+      }
+    } else if (typeof bindings === 'object') {
       for (const [name, val] of Object.entries(bindings as Record<string, any>)) {
         const value = val?.namespace_id || val?.id || val?.name || val?.dataset || val?.service || JSON.stringify(val);
         list.push({ type: label, typeKey, name, value });
@@ -721,8 +728,12 @@ async function loadBindings() {
       workersApi.getPagesProject(settingsAccountId.value, settingsWorkerName.value),
       buildResourceNameMap(),
     ]);
+    console.log('[Bindings] deployment_configs:', JSON.stringify(data?.deployment_configs));
     bindingsList.value = parseBindings(data?.deployment_configs);
-  } catch { bindingsList.value = []; }
+  } catch (e) {
+    console.error('[Bindings] loadBindings failed:', e);
+    bindingsList.value = [];
+  }
   finally { bindingsLoading.value = false; }
 }
 
@@ -893,8 +904,8 @@ async function openSettings(row: any) {
     loadPagesProject();
     loadPagesDomains();
     loadPagesDeployments();
-    // Check R2 availability before loading bindings
     checkR2Availability();
+    loadBindings();
   }
 }
 
