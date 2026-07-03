@@ -275,10 +275,8 @@ import { NButton, NSpace, NInput, NSelect, NCheckbox, useMessage, useDialog } fr
 import type { DataTableColumns } from 'naive-ui';
 import { storageApi } from '../api/storage';
 import { accountsApi } from '../api/accounts';
-import { useAccountStore } from '../stores/accountStore';
 import { formatCN } from '../utils/dateFormat';
 
-const accountStore = useAccountStore();
 const message = useMessage();
 const dialog = useDialog();
 
