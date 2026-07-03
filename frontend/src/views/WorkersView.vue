@@ -638,11 +638,33 @@ const bindingSaving = ref(false);
 const bindingForm = ref({ type: 'kv_namespaces', name: '', value: '' });
 const bindingResources = ref<any[]>([]);
 const bindingResourcesLoading = ref(false);
-const bindingTypeOptions = [
-  { label: 'KV 命名空间', value: 'kv_namespaces' },
-  { label: 'D1 数据库', value: 'd1_databases' },
-  { label: 'R2 存储桶', value: 'r2_buckets' },
-];
+const r2Available = ref(true);
+const bindingTypeOptions = computed(() => {
+  const options = [
+    { label: 'KV 命名空间', value: 'kv_namespaces' },
+    { label: 'D1 数据库', value: 'd1_databases' },
+  ];
+  if (r2Available.value) {
+    options.push({ label: 'R2 存储桶', value: 'r2_buckets' });
+  }
+  return options;
+});
+
+async function checkR2Available() {
+  if (!settingsAccountId.value) { r2Available.value = true; return; }
+  try {
+    await workersApi.getR2Buckets(settingsAccountId.value);
+    r2Available.value = true;
+  } catch (err: any) {
+    const code = err?.response?.data?.error?.code;
+    const msg = err?.response?.data?.error?.message || err?.message || '';
+    if (code === 'R2_NOT_ENABLED' || msg.includes('10042') || msg.includes('Please enable R2')) {
+      r2Available.value = false;
+    } else {
+      r2Available.value = true;
+    }
+  }
+}
 const bindingResourceOptions = computed(() =>
   bindingResources.value.map((r: any) => ({
     label: r.title || r.name || r.id,
@@ -725,7 +747,13 @@ async function loadBindingResources(type: string) {
     let resp: any;
     if (type === 'kv_namespaces') resp = await workersApi.getKvNamespaces(settingsAccountId.value);
     else if (type === 'd1_databases') resp = await workersApi.getD1Databases(settingsAccountId.value);
-    else if (type === 'r2_buckets') resp = await workersApi.getR2Buckets(settingsAccountId.value);
+    else if (type === 'r2_buckets') {
+      if (!r2Available.value) {
+        message.warning('当前账户未启用 R2，请先在 Cloudflare 控制台启用');
+        return;
+      }
+      resp = await workersApi.getR2Buckets(settingsAccountId.value);
+    }
     bindingResources.value = Array.isArray(resp?.data) ? resp.data : [];
   } catch { bindingResources.value = []; }
   finally { bindingResourcesLoading.value = false; }
@@ -858,6 +886,7 @@ async function openSettings(row: any) {
     loadPagesDomains();
     loadPagesDeployments();
     loadBindings();
+    checkR2Available();
   }
 }
 
