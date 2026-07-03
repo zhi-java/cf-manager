@@ -146,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick } from 'vue';
+import { ref, reactive, watch, onMounted, nextTick } from 'vue';
 import { useMessage } from 'naive-ui';
 import { aiApi } from '../api/ai';
 import { accountsApi } from '../api/accounts';
