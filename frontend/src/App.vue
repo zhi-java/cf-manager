@@ -289,7 +289,6 @@ function toggleTheme() {
 <style scoped>
 /* Mobile Layout */
 .mobile-layout {
-  min-height: 100vh;
   height: 100vh;
   overflow-y: auto;
   scrollbar-width: none;
@@ -304,7 +303,7 @@ function toggleTheme() {
 .mobile-content {
   flex: 1;
   overflow: hidden;
-  padding: 16px 12px 80px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
 }

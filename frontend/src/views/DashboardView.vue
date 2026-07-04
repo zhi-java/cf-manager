@@ -20,21 +20,25 @@
       </n-space>
     </n-space>
 
-    <n-space v-if="globalStats.totalAccounts > 0" style="margin: 12px 0; flex-shrink: 0">
-      <n-tag>共 {{ globalStats.totalAccounts }} 账户</n-tag>
+    <n-space v-if="globalStats.totalAccounts > 0" style="margin: 12px 0; flex-shrink: 0" :wrap="true">
+      <n-tag>{{ globalStats.totalAccounts }} 账户</n-tag>
       <n-tag v-if="globalStats.nearExhaustion > 0" type="warning">
-        {{ globalStats.nearExhaustion }} 快耗尽
+        {{ globalStats.nearExhaustion }} 快
       </n-tag>
       <n-tag v-if="globalStats.exhaustedAccounts > 0" type="error">
-        {{ globalStats.exhaustedAccounts }} 已耗尽
+        {{ globalStats.exhaustedAccounts }} 尽
       </n-tag>
-      <n-tag type="info">AI 总量 {{ globalStats.aiNeuronsTotal.toLocaleString() }}</n-tag>
-      <n-tag type="info">Workers 总量 {{ globalStats.workersRequestsTotal.toLocaleString() }}</n-tag>
-      <n-tag type="info">渲染总量 {{ globalStats.browserRenderTotal.toLocaleString() }}</n-tag>
+      <n-tag type="info">
+        AI {{ formatCompact(globalStats.aiNeuronsTotal) }} · W {{ formatCompact(globalStats.workersRequestsTotal) }} · R {{ formatCompact(globalStats.browserRenderTotal) }}s
+      </n-tag>
     </n-space>
 
+
+
+
       <n-spin :show="quotaStore.loading" style="flex-shrink: 0; width: 100%">
-      <div class="card-grid-scroll" style="width: 100%; max-height: 200px">
+      <div class="card-grid-scroll" style="width: 100%" :style="{ maxHeight: isMobile ? '150px' : '200px' }">
+
         <n-grid
           v-if="quotaWithResources.length > 0"
           cols="1 s:2 m:5 l:6 xl:8"
@@ -52,7 +56,8 @@
     </n-spin>
 
     <n-h3 style="margin: 0; flex-shrink: 0">最近操作日志</n-h3>
-    <div class="log-table-wrapper" style="flex: 1; min-height: 0; overflow: hidden">
+    <div class="log-table-wrapper" style="flex: 1; min-height: 0; overflow: auto">
+
         <n-data-table
         :columns="logColumns"
         :data="auditLogs"
@@ -71,7 +76,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useQuotaStore } from '../stores/quotaStore';
 import apiClient from '../api/client';
 import type { DataTableColumns } from 'naive-ui';
-import { formatCN } from '../utils/dateFormat';
+import { formatCN, formatCNShort } from '../utils/dateFormat';
 import { calcPercentage } from '../utils/quota';
 import CompactAccountCard from '../components/CompactAccountCard.vue';
 
@@ -131,6 +136,12 @@ const quotaWithResources = computed(() => {
   return accounts;
 });
 
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1_000) return Math.round(n / 1_000) + 'K';
+  return n.toString();
+}
+
 const globalStats = computed(() => {
   const accounts = quotaStore.quota.filter(
     (acct: any) => acct.resources && acct.resources.length > 0,
@@ -175,17 +186,31 @@ const globalStats = computed(() => {
 const auditLogs = ref<any[]>([]);
 const loadingLogs = ref(false);
 
-const logColumns: DataTableColumns<any> = [
-  { title: '时间', key: 'created_at', width: 180, render: (row) => formatCN(row.created_at) },
-  { title: '账号', key: 'account_name', width: 120, render: (row) => row.account_name || '-' },
-  { title: '操作', key: 'action', width: 150 },
-  { title: '目标', key: 'target', width: 150 },
-  { title: '详情', key: 'detail', width: 160, minWidth: 120, ellipsis: { tooltip: true } },
-  { title: '状态', key: 'status', width: 80 },
-];
+const isMobile = computed(() => windowWidth.value < 640);
+
+const logColumns = computed<DataTableColumns<any>>(() => {
+  if (isMobile.value) {
+    return [
+      { title: '时间', key: 'created_at', width: 70, render: (row) => formatCNShort(row.created_at) },
+      { title: '账号', key: 'account_name', width: 65, render: (row) => row.account_name || '-' },
+      { title: '操作', key: 'action', width: 60 },
+      { title: '目标', key: 'target', width: 85, ellipsis: { tooltip: true } },
+      { title: '详情', key: 'detail', width: 70, minWidth: 60, ellipsis: { tooltip: true } },
+      { title: '状态', key: 'status', width: 45 },
+    ];
+  }
+  return [
+    { title: '时间', key: 'created_at', width: 180, render: (row) => formatCN(row.created_at) },
+    { title: '账号', key: 'account_name', width: 120, render: (row) => row.account_name || '-' },
+    { title: '操作', key: 'action', width: 150 },
+    { title: '目标', key: 'target', width: 150, ellipsis: { tooltip: true } },
+    { title: '详情', key: 'detail', width: 160, minWidth: 120, ellipsis: { tooltip: true } },
+    { title: '状态', key: 'status', width: 80 },
+  ];
+});
 
 const scrollX = computed(() => {
-  const colWidths = [180, 120, 150, 150, 160, 80];
+  const colWidths = isMobile.value ? [70, 65, 60, 85, 70, 45] : [180, 120, 150, 150, 160, 80];
   return colWidths.reduce((a, b) => a + b, 0);
 });
 
