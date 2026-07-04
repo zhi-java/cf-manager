@@ -5,8 +5,8 @@ pages_build_output_dir = "public"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "cf-manager"
-database_id = "YOUR_D1_DATABASE_ID"
+database_name = "cfmgr"
+database_id = "13b75013-7332-4bd0-9323-7e50c9e6ea52"
 
 [[kv_namespaces]]
 binding = "KV"
