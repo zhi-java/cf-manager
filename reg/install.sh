@@ -6,6 +6,12 @@ RAW_URL="https://raw.githubusercontent.com/${REPO}/master/reg"
 INSTALL_DIR="${CF_REG_INSTALL_DIR:-$PWD}"
 MIN_NODE_VERSION=20
 
+# Color output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
 echo "Cloudflare Batch Registration Tool - Installer"
 echo "=================================================="
 echo ""
@@ -64,6 +70,80 @@ chmod +x "${INSTALL_DIR}/cf-reg"
 
 echo "[OK] Files ready in ${INSTALL_DIR}"
 
+# -- Check and install Windows fonts (Linux only) --
+install_windows_fonts() {
+    # Only for Linux
+    if [[ "$OSTYPE" != "linux-gnu"* ]]; then
+        return 0
+    fi
+
+    echo "[3.5/4] Checking Windows fonts for cloakbrowser..."
+
+    # Check if common Windows fonts exist
+    local font_check=false
+    if fc-list | grep -qi "arial\|times\|courier\|verdana\|trebuchet"; then
+        font_check=true
+    fi
+
+    if [ "$font_check" = true ]; then
+        echo "[OK] Windows fonts already installed"
+        return 0
+    fi
+
+    echo "[WARN] Windows fonts not found - cloakbrowser works better with them"
+    echo "        See: https://github.com/CloakHQ/cloakbrowser#font-setup-on-linux"
+    echo ""
+
+    # Detect package manager and offer to install
+    if command -v apt-get &> /dev/null; then
+        echo "        Detected: Debian/Ubuntu"
+        echo "        Run: sudo apt-get install -y ttf-mscorefonts-installer"
+        echo ""
+    elif command -v yum &> /dev/null; then
+        echo "        Detected: CentOS/RHEL"
+        echo "        Run: sudo yum install -y curl cabextract xorg-x11-font-utils fontconfig"
+        echo "        Then: sudo rpm -i https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-2.6-1.noarch.rpm"
+        echo ""
+    elif command -v dnf &> /dev/null; then
+        echo "        Detected: Fedora"
+        echo "        Run: sudo dnf install -y curl cabextract xorg-x11-font-utils fontconfig"
+        echo "        Then: sudo rpm -i https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-2.6-1.noarch.rpm"
+        echo ""
+    elif command -v pacman &> /dev/null; then
+        echo "        Detected: Arch Linux"
+        echo "        Run: yay -S ttf-ms-fonts"
+        echo "        Or: sudo pacman -S ttf-ms-fonts (from AUR)"
+        echo ""
+    fi
+
+    echo "        Or set CLOAKBROWSER_SUPPRESS_FONT_WARNING=1 to suppress this warning"
+    echo ""
+    read -p "        Attempt to install fonts now? (requires sudo) [y/N] " -n 1 -r
+    echo ""
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y ttf-mscorefonts-installer
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y curl cabextract xorg-x11-font-utils fontconfig
+            sudo rpm -i https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-2.6-1.noarch.rpm || true
+        elif command -v dnf &> /dev/null; then
+            sudo dnf install -y curl cabextract xorg-x11-font-utils fontconfig
+            sudo rpm -i https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-2.6-1.noarch.rpm || true
+        elif command -v pacman &> /dev/null; then
+            echo "[WARN] Arch Linux requires manual installation from AUR"
+            echo "       Run: yay -S ttf-ms-fonts"
+        fi
+        echo "[OK] Font installation attempted"
+    else
+        echo "[INFO] Skipping font installation"
+        echo "[INFO] Set CLOAKBROWSER_SUPPRESS_FONT_WARNING=1 to suppress warning"
+    fi
+    echo ""
+}
+
+install_windows_fonts
+
 # -- Install dependencies --
 echo "[4/4] Installing dependencies..."
 
@@ -82,6 +162,43 @@ npm install --no-save cloakbrowser commander node-fetch playwright-core &> /dev/
 }
 
 echo "[OK] Dependencies installed"
+
+# -- Pre-download Stealth Chromium for cloakbrowser --
+echo "[INFO] Pre-downloading Stealth Chromium (this may take a while)..."
+
+# Create a temporary script to trigger Chromium download
+cat > "${INSTALL_DIR}/.download-chromium.mjs" << 'EOF'
+import { launch } from 'cloakbrowser';
+
+async function downloadChromium() {
+    console.log('[Download] Starting Chromium download...');
+    try {
+        const browser = await launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        console.log('[Download] Chromium downloaded successfully!');
+        await browser.close();
+        process.exit(0);
+    } catch (error) {
+        console.error('[Download] Failed to pre-download Chromium:', error.message);
+        console.log('[Download] Chromium will be downloaded on first use instead.');
+        process.exit(0);
+    }
+}
+
+downloadChromium();
+EOF
+
+# Run the download script
+node "${INSTALL_DIR}/.download-chromium.mjs" 2>&1 | while IFS= read -r line; do
+    echo "        $line"
+done
+
+# Clean up
+rm -f "${INSTALL_DIR}/.download-chromium.mjs"
+
+echo "[OK] Chromium pre-download step completed"
 
 echo ""
 echo "=================================================="

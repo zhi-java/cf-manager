@@ -1,6 +1,6 @@
 <template>
-  <div>
-    <n-space align="center" justify="space-between" style="width: 100%">
+  <div class="dashboard-page">
+    <n-space align="center" justify="space-between" style="width: 100%" :wrap="true">
       <n-space align="center">
         <n-h2 style="margin: 0">仪表盘</n-h2>
         <n-tag size="small" type="info">今日额度</n-tag>
@@ -20,50 +20,74 @@
       </n-space>
     </n-space>
 
-    <n-space v-if="globalStats.totalAccounts > 0" style="margin: 12px 0">
-      <n-tag>共 {{ globalStats.totalAccounts }} 账户</n-tag>
+    <n-space v-if="globalStats.totalAccounts > 0" style="margin: 12px 0; flex-shrink: 0" :wrap="true">
+      <n-tag>{{ globalStats.totalAccounts }} 账户</n-tag>
       <n-tag v-if="globalStats.nearExhaustion > 0" type="warning">
-        {{ globalStats.nearExhaustion }} 快耗尽
+        {{ globalStats.nearExhaustion }} 快
       </n-tag>
       <n-tag v-if="globalStats.exhaustedAccounts > 0" type="error">
-        {{ globalStats.exhaustedAccounts }} 已耗尽
+        {{ globalStats.exhaustedAccounts }} 尽
       </n-tag>
-      <n-tag type="info">AI 总量 {{ globalStats.aiNeuronsTotal.toLocaleString() }}</n-tag>
+      <n-tag type="info">
+        AI {{ formatCompact(globalStats.aiNeuronsTotal) }} · W {{ formatCompact(globalStats.workersRequestsTotal) }} · R {{ formatCompact(globalStats.browserRenderTotal) }}s
+      </n-tag>
     </n-space>
 
-    <n-spin :show="quotaStore.loading" style="margin-top: 16px">
-      <n-grid v-if="quotaWithResources.length > 0" cols="6 s:4 m:6 l:8 xl:10" :x-gap="8" :y-gap="8" responsive="screen">
+
+
+
+      <n-spin :show="quotaStore.loading" style="flex-shrink: 0; width: 100%">
+      <div class="card-grid-scroll" style="width: 100%" :style="{ maxHeight: isMobile ? '150px' : '200px' }">
+
+        <n-grid
+          v-if="quotaWithResources.length > 0"
+          cols="1 s:2 m:5 l:6 xl:8"
+          :x-gap="8"
+          :y-gap="8"
+          responsive="screen"
+          style="width: 100%"
+        >
         <n-gi v-for="acct in quotaWithResources" :key="acct.accountId">
           <CompactAccountCard :account-name="acct.accountName" :resources="acct.resources" />
         </n-gi>
       </n-grid>
+      </div>
       <n-empty v-if="!quotaStore.loading && quotaWithResources.length === 0" description="暂无账户数据" />
     </n-spin>
 
-    <n-h3 style="margin-top: 24px">最近操作日志</n-h3>
-    <n-data-table
-      :columns="logColumns"
-      :data="auditLogs"
-      :loading="loadingLogs"
-      size="small"
-      :bordered="false"
-      :scroll-x="700"
-    />
+    <n-h3 style="margin: 0; flex-shrink: 0">最近操作日志</n-h3>
+    <div class="log-table-wrapper" style="flex: 1; min-height: 0; overflow: auto">
+
+        <n-data-table
+        :columns="logColumns"
+        :data="auditLogs"
+        :loading="loadingLogs"
+        size="small"
+        :bordered="false"
+        :scroll-x="scrollX"
+        :flex-height="true"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useQuotaStore } from '../stores/quotaStore';
 import apiClient from '../api/client';
 import type { DataTableColumns } from 'naive-ui';
-import { formatCN } from '../utils/dateFormat';
+import { formatCN, formatCNShort } from '../utils/dateFormat';
 import { calcPercentage } from '../utils/quota';
 import CompactAccountCard from '../components/CompactAccountCard.vue';
 
 const quotaStore = useQuotaStore();
 const searchQuery = ref('');
 const sortBy = ref('name');
+const windowWidth = ref(window.innerWidth);
+
+function onResize() {
+  windowWidth.value = window.innerWidth;
+}
 
 const sortOptions = [
   { label: '名称 A-Z', value: 'name' },
@@ -112,6 +136,12 @@ const quotaWithResources = computed(() => {
   return accounts;
 });
 
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1_000) return Math.round(n / 1_000) + 'K';
+  return n.toString();
+}
+
 const globalStats = computed(() => {
   const accounts = quotaStore.quota.filter(
     (acct: any) => acct.resources && acct.resources.length > 0,
@@ -136,22 +166,58 @@ const globalStats = computed(() => {
     return sum + (aiResource?.count || 0);
   }, 0);
 
-  return { totalAccounts, nearExhaustion, exhaustedAccounts, aiNeuronsTotal };
+  const workersRequestsTotal = accounts.reduce((sum: number, acct: any) => {
+    const w = acct.resources.find(
+      (r: any) => r.resource === 'workers_requests',
+    );
+    return sum + (w?.count || 0);
+  }, 0);
+
+  const browserRenderTotal = accounts.reduce((sum: number, acct: any) => {
+    const r = acct.resources.find(
+      (r: any) => r.resource === 'browser_render_seconds',
+    );
+    return sum + (r?.count || 0);
+  }, 0);
+
+  return { totalAccounts, nearExhaustion, exhaustedAccounts, aiNeuronsTotal, workersRequestsTotal, browserRenderTotal };
 });
 
 const auditLogs = ref<any[]>([]);
 const loadingLogs = ref(false);
 
-const logColumns: DataTableColumns<any> = [
-  { title: '时间', key: 'created_at', width: 180, render: (row) => formatCN(row.created_at) },
-  { title: '账号', key: 'account_name', width: 120, render: (row) => row.account_name || '-' },
-  { title: '操作', key: 'action', width: 150 },
-  { title: '目标', key: 'target', width: 150 },
-  { title: '详情', key: 'detail', ellipsis: { tooltip: true } },
-  { title: '状态', key: 'status', width: 80 },
-];
+const isMobile = computed(() => windowWidth.value < 640);
+
+const logColumns = computed<DataTableColumns<any>>(() => {
+  if (isMobile.value) {
+    return [
+      { title: '时间', key: 'created_at', width: 70, render: (row) => formatCNShort(row.created_at) },
+      { title: '账号', key: 'account_name', width: 65, render: (row) => row.account_name || '-' },
+      { title: '操作', key: 'action', width: 60 },
+      { title: '目标', key: 'target', width: 85, ellipsis: { tooltip: true } },
+      { title: '详情', key: 'detail', width: 70, minWidth: 60, ellipsis: { tooltip: true } },
+      { title: '状态', key: 'status', width: 45 },
+    ];
+  }
+  return [
+    { title: '时间', key: 'created_at', width: 180, render: (row) => formatCN(row.created_at) },
+    { title: '账号', key: 'account_name', width: 120, render: (row) => row.account_name || '-' },
+    { title: '操作', key: 'action', width: 150 },
+    { title: '目标', key: 'target', width: 150, ellipsis: { tooltip: true } },
+    { title: '详情', key: 'detail', width: 160, minWidth: 120, ellipsis: { tooltip: true } },
+    { title: '状态', key: 'status', width: 80 },
+  ];
+});
+
+const scrollX = computed(() => {
+  const colWidths = isMobile.value ? [70, 65, 60, 85, 70, 45] : [180, 120, 150, 150, 160, 80];
+  return colWidths.reduce((a, b) => a + b, 0);
+});
+
+
 
 onMounted(async () => {
+  window.addEventListener('resize', onResize);
   quotaStore.fetchQuota();
   loadingLogs.value = true;
   try {
@@ -161,4 +227,42 @@ onMounted(async () => {
     loadingLogs.value = false;
   }
 });
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onResize);
+});
 </script>
+
+<style scoped>
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 12px;
+}
+
+.log-table-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+  min-height: 0;
+}
+
+.card-grid-scroll {
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+:global(.n-data-table) {
+  height: 100% !important;
+}
+
+:global(.n-tooltip) {
+  max-width: 400px !important;
+  word-break: break-all;
+}
+
+</style>

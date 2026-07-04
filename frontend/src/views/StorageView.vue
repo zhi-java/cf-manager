@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="page-view">
     <n-h2>存储管理</n-h2>
     <n-space align="center" style="margin-bottom: 16px">
      <span>账号：</span>
@@ -458,7 +458,7 @@ async function handleDeleteKv(row: any) {
 }
 
 const kvColumns: DataTableColumns<any> = [
-  { title: 'Key', key: 'name', ellipsis: { tooltip: true } },
+  { title: 'Key', key: 'name', width: 180, minWidth: 100, ellipsis: { tooltip: true } },
   { title: '过期时间', key: 'expiration', width: 180, render: (row) => row.expiration ? formatCN(row.expiration * 1000) : '永不' },
   {
     title: '操作', key: 'actions', width: 140,
@@ -874,7 +874,7 @@ async function handleDownloadR2(row: any) {
 
 const r2Columns: DataTableColumns<any> = [
   {
-    title: '名称', key: 'name', ellipsis: { tooltip: true },
+    title: '名称', key: 'name', width: 180, minWidth: 100, ellipsis: { tooltip: true },
     render: (row: any) => {
       if (row.isFolder) {
         return h('a', { style: 'cursor:pointer;color:#2080f0', onClick: () => navigateR2Folder(row.key) }, `📁 ${row.name}`);

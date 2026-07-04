@@ -1,8 +1,8 @@
 <template>
-  <n-popover trigger="click" :show="showPopover" @update:show="showPopover = $event" placement="bottom">
+  <n-popover trigger="click" :show="showPopover" @update:show="showPopover = $event" placement="bottom" style="display: block; width: 100%;">
     <template #trigger>
       <div class="compact-card" :class="{ 'compact-card--no-resources': !hasResources }" @click="showPopover = true">
-        <span class="compact-card__name" :title="accountName">{{ displayName }}</span>
+        <span class="compact-card__name" :title="accountName">{{ accountName }}</span>
         <div class="compact-card__dots">
           <n-tooltip v-for="item in orderedResources" :key="item.resource" trigger="hover">
             <template #trigger>
@@ -12,12 +12,6 @@
           </n-tooltip>
           <span v-for="i in emptyDots" :key="'empty-' + i" class="compact-card__dot" style="background-color: #ccc" />
         </div>
-        <n-tooltip v-if="hasExhausted" trigger="hover">
-          <template #trigger>
-            <span class="compact-card__exhausted-dot" />
-          </template>
-          有资源已耗尽
-        </n-tooltip>
       </div>
     </template>
 
@@ -111,28 +105,23 @@ const orderedResources = computed(() => {
 const emptyDots = computed(() => Math.max(0, 3 - orderedResources.value.length));
 
 const hasResources = computed(() => props.resources && props.resources.length > 0);
-
-const hasExhausted = computed(() => props.resources && props.resources.some(r => r.exhausted));
-
-const displayName = computed(() => {
-  const name = props.accountName;
-  return name.length > 8 ? name.slice(0, 7) + '…' : name;
-});
 </script>
 
 <style scoped>
 .compact-card {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 120px;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
   height: 28px;
-  padding: 0 4px;
+  padding: 0 6px;
   border: 1px solid #e0e0e6;
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s;
   background-color: #fff;
+  box-sizing: border-box;
 }
 
 .compact-card:hover {
@@ -153,12 +142,14 @@ const displayName = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 70px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .compact-card__dots {
   display: flex;
   gap: 3px;
+  flex-shrink: 0;
 }
 
 .compact-card__dot {
@@ -166,20 +157,6 @@ const displayName = computed(() => {
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-}
-
-.compact-card__exhausted-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background-color: #e03050;
-  animation: pulse-exhausted 1.5s infinite;
-}
-
-@keyframes pulse-exhausted {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
 }
 
 .compact-card__popover {
@@ -210,5 +187,15 @@ const displayName = computed(() => {
 
 .compact-card__popover-value {
   color: #999;
+}
+
+@media (max-width: 768px) {
+  .compact-card__name {
+    min-width: 0;
+  }
+  .compact-card__dot {
+    width: 6px;
+    height: 6px;
+  }
 }
 </style>

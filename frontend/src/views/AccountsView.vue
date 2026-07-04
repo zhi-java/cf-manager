@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="page-view">
     <n-space justify="space-between" align="center">
       <n-h2>账号管理</n-h2>
       <n-space>
@@ -322,7 +322,7 @@ const batchResultColumns: DataTableColumns<any> = [
       return h(NTag, { size: 'small', type: m.type, bordered: false }, { default: () => m.text });
     },
   },
-  { title: '说明', key: 'message', ellipsis: { tooltip: true }, render: (row) => row.message || '-' },
+  { title: '说明', key: 'message', width: 180, minWidth: 100, ellipsis: { tooltip: true }, render: (row) => row.message || '-' },
 ];
 
 async function handleDelete(row: any) {
@@ -369,7 +369,7 @@ const importResultColumns: DataTableColumns<any> = [
       return h(NTag, { size: 'small', type: m.type, bordered: false }, { default: () => m.text });
     },
   },
-  { title: '说明', key: 'message', ellipsis: { tooltip: true }, render: (row) => row.message || '-' },
+  { title: '说明', key: 'message', width: 180, minWidth: 100, ellipsis: { tooltip: true }, render: (row) => row.message || '-' },
 ];
 
 function parseFeatures(raw: string | undefined): string[] {
