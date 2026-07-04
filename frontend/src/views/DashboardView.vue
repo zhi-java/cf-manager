@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="dashboard-page">
     <n-space align="center" justify="space-between" style="width: 100%" :wrap="true">
       <n-space align="center">
         <n-h2 style="margin: 0">仪表盘</n-h2>
@@ -20,7 +20,7 @@
       </n-space>
     </n-space>
 
-    <n-space v-if="globalStats.totalAccounts > 0" style="margin: 12px 0">
+    <n-space v-if="globalStats.totalAccounts > 0" style="margin: 12px 0; flex-shrink: 0">
       <n-tag>共 {{ globalStats.totalAccounts }} 账户</n-tag>
       <n-tag v-if="globalStats.nearExhaustion > 0" type="warning">
         {{ globalStats.nearExhaustion }} 快耗尽
@@ -29,16 +29,19 @@
         {{ globalStats.exhaustedAccounts }} 已耗尽
       </n-tag>
       <n-tag type="info">AI 总量 {{ globalStats.aiNeuronsTotal.toLocaleString() }}</n-tag>
+      <n-tag type="info">Workers 总量 {{ globalStats.workersRequestsTotal.toLocaleString() }}</n-tag>
+      <n-tag type="info">渲染总量 {{ globalStats.browserRenderTotal.toLocaleString() }}</n-tag>
     </n-space>
 
-    <n-spin :show="quotaStore.loading" style="margin-top: 16px">
-      <div class="card-grid-scroll">
+      <n-spin :show="quotaStore.loading" style="flex-shrink: 0; width: 100%">
+      <div class="card-grid-scroll" style="width: 100%; max-height: 200px">
         <n-grid
           v-if="quotaWithResources.length > 0"
           cols="1 s:2 m:5 l:6 xl:8"
           :x-gap="8"
           :y-gap="8"
           responsive="screen"
+          style="width: 100%"
         >
         <n-gi v-for="acct in quotaWithResources" :key="acct.accountId">
           <CompactAccountCard :account-name="acct.accountName" :resources="acct.resources" />
@@ -48,16 +51,16 @@
       <n-empty v-if="!quotaStore.loading && quotaWithResources.length === 0" description="暂无账户数据" />
     </n-spin>
 
-    <n-h3 style="margin-top: 24px">最近操作日志</n-h3>
-    <div class="log-table-wrapper">
-      <n-data-table
+    <n-h3 style="margin: 0; flex-shrink: 0">最近操作日志</n-h3>
+    <div class="log-table-wrapper" style="flex: 1; min-height: 0; overflow: hidden">
+        <n-data-table
         :columns="logColumns"
         :data="auditLogs"
         :loading="loadingLogs"
         size="small"
         :bordered="false"
-        :scroll-x="Math.max(700, windowWidth)"
-        :max-height="500"
+        :scroll-x="scrollX"
+        :flex-height="true"
       />
     </div>
   </div>
@@ -152,7 +155,21 @@ const globalStats = computed(() => {
     return sum + (aiResource?.count || 0);
   }, 0);
 
-  return { totalAccounts, nearExhaustion, exhaustedAccounts, aiNeuronsTotal };
+  const workersRequestsTotal = accounts.reduce((sum: number, acct: any) => {
+    const w = acct.resources.find(
+      (r: any) => r.resource === 'workers_requests',
+    );
+    return sum + (w?.count || 0);
+  }, 0);
+
+  const browserRenderTotal = accounts.reduce((sum: number, acct: any) => {
+    const r = acct.resources.find(
+      (r: any) => r.resource === 'browser_render_seconds',
+    );
+    return sum + (r?.count || 0);
+  }, 0);
+
+  return { totalAccounts, nearExhaustion, exhaustedAccounts, aiNeuronsTotal, workersRequestsTotal, browserRenderTotal };
 });
 
 const auditLogs = ref<any[]>([]);
@@ -166,6 +183,13 @@ const logColumns: DataTableColumns<any> = [
   { title: '详情', key: 'detail', width: 160, minWidth: 120, ellipsis: { tooltip: true } },
   { title: '状态', key: 'status', width: 80 },
 ];
+
+const scrollX = computed(() => {
+  const colWidths = [180, 120, 150, 150, 160, 80];
+  return colWidths.reduce((a, b) => a + b, 0);
+});
+
+
 
 onMounted(async () => {
   window.addEventListener('resize', onResize);
@@ -185,10 +209,19 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 12px;
+}
+
 .log-table-wrapper {
   max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  flex: 1;
+  min-height: 0;
 }
 
 .card-grid-scroll {
@@ -197,4 +230,14 @@ onUnmounted(() => {
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
 }
+
+:global(.n-data-table) {
+  height: 100% !important;
+}
+
+:global(.n-tooltip) {
+  max-width: 400px !important;
+  word-break: break-all;
+}
+
 </style>

@@ -205,10 +205,8 @@ export function updateAiCacheAfterUsage(accountId: number, neurons: number): voi
 }
 
 export function removeAccountFromAiCache(accountId: number): void {
-  const list = quotaCache.get<AiSnapshotEntry[]>(AI_CACHE_KEY);
-  if (!list) return;
-  const idx = list.findIndex(r => r.account.id === accountId);
-  if (idx >= 0) list.splice(idx, 1);
+  quotaCache.del(AI_CACHE_KEY);
+  appLogger.info(`[AccountRouter] Invalidated AI cache due to account ${accountId} exhaustion`);
 }
 
 export function clearCache(resource?: ResourceType): void {

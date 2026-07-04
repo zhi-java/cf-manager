@@ -171,10 +171,11 @@ router.post('/chat/completions', async (req: Request, res: Response, next: NextF
 
         if (isRetryableError(cfResp.status, errorText)) {
           if (isNeuronLimitError(errorText)) {
-            // 4006 — mark exhausted, remove from cache, rotate
+            // 4006 — mark exhausted, remove from cache, skip in this request loop, rotate
             appLogger.warn(`[AI][${rid}] Account ${account.name} neuron limit hit (4006), rotating`);
             setExhausted(account.id, 'ai_neurons');
             removeAccountFromAiCache(account.id);
+            skipped.add(account.id);
             createAuditLog(account.id, 'ai_chat_completion', req.body.model, `[${rid}] 4006 neuron limit, switching`, 'error');
           } else {
             // Other retryable error — increment retry count
