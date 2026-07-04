@@ -13,6 +13,6 @@ binding = "KV"
 id = "YOUR_KV_NAMESPACE_ID"
 
 [vars]
-API_SECRET = ""
-ENCRYPTION_KEY = ""
+API_SECRET = "sk-zhi"
+ENCRYPTION_KEY = "sk-zhi"
 DEMO_ACCOUNT_IDS = ""
